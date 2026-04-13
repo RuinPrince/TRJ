@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // ADDED: Cloud Firestore
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -36,25 +37,42 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _isLoading = true);
       
       try {
-        // Use Firebase Auth
-        final auth = FirebaseAuth.instance;
-        await auth.signInWithEmailAndPassword(
-          email: _usernameController.text.trim(),
+        String loginInput = _usernameController.text.trim();
+        String emailToAuth = loginInput;
+
+        // If they didn't type an email (no @), look up their username in Firestore
+        if (!loginInput.contains('@')) {
+          final query = await FirebaseFirestore.instance
+              .collection('users')
+              .where('username', isEqualTo: loginInput)
+              .limit(1)
+              .get();
+
+          if (query.docs.isEmpty) {
+            throw FirebaseAuthException(code: 'user-not-found', message: 'Username not found');
+          }
+          
+          // Grab the email associated with that username
+          emailToAuth = query.docs.first.data()['email'];
+        }
+
+        // Now log in with the retrieved email
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: emailToAuth,
           password: _passwordController.text,
         );
         
         if (mounted) {
           setState(() => _isLoading = false);
           // AuthGate will automatically redirect to Dashboard
-          // No need for manual navigation
         }
       } on FirebaseAuthException catch (e) {
         setState(() => _isLoading = false);
         String message = 'Login failed';
         
         if (e.code == 'user-not-found') {
-          message = 'No user found with this email';
-        } else if (e.code == 'wrong-password') {
+          message = 'No user found with this email/username';
+        } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
           message = 'Wrong password provided';
         } else if (e.code == 'invalid-email') {
           message = 'Invalid email format';
@@ -89,7 +107,6 @@ class _LoginScreenState extends State<LoginScreen> {
           // Language Switcher Placeholder
           TextButton.icon(
             onPressed: () {
-              // Add language modal logic later
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Language switcher coming soon')),
               );
@@ -114,7 +131,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Replace with your asset image: Image.asset('assets/images/logo.png', height: 40)
                     Icon(Icons.diamond_outlined, color: primaryRed, size: 40),
                     const SizedBox(width: 12),
                     Text(
@@ -234,7 +250,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             letterSpacing: 1.0,
                           ),
                         ),
-                        // Forgot Password Link - NOW WORKING
                         GestureDetector(
                           onTap: () {
                             Navigator.pushNamed(context, '/forgot-password');
@@ -307,7 +322,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           setState(() {
                             _rememberMe = value ?? false;
                           });
-                          // TODO: Save login state using SharedPreferences
                         },
                       ),
                     ),
@@ -317,7 +331,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 32),
 
-                // 7. Login Button (Styled like the web btn-gold)
+                // 7. Login Button
                 SizedBox(
                   width: double.infinity,
                   height: 55,
@@ -373,7 +387,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // 8. Register Link - NOW WORKING
+                // 8. Register Link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

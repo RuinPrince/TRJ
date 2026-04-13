@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // ADDED: Cloud Firestore
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -44,7 +46,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _handleRegister() {
+  void _handleRegister() async {
     if (!_agreedToTerms) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -58,15 +60,78 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       
-      // TODO: Connect to AuthService (Firebase) here
-      // Example: authService.register(email, password, fullName, phone, etc.);
-      
-      Future.delayed(const Duration(seconds: 2), () {
+      try {
+        final auth = FirebaseAuth.instance;
+        final firestore = FirebaseFirestore.instance;
+
+        // 1. Check if username is already taken
+        final usernameCheck = await firestore.collection('users')
+            .where('username', isEqualTo: _usernameController.text.trim())
+            .get();
+            
+        if (usernameCheck.docs.isNotEmpty) {
+           setState(() => _isLoading = false);
+           ScaffoldMessenger.of(context).showSnackBar(
+             const SnackBar(content: Text('Username is already taken'), backgroundColor: Colors.red),
+           );
+           return;
+        }
+        
+        // 2. Create the user in Firebase Auth
+        UserCredential userCredential = await auth.createUserWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
+        );
+
+        // 3. Optional: Update the display name profile
+        await userCredential.user?.updateDisplayName(_fullNameController.text.trim());
+
+        // 4. Save ALL profile details to Firestore with DB-matching snake_case fields
+        await firestore.collection('users').doc(userCredential.user!.uid).set({
+          'uid': userCredential.user!.uid,
+          'full_name': _fullNameController.text.trim(),
+          'username': _usernameController.text.trim(),
+          'email': _emailController.text.trim(),
+          'phone': _phoneController.text.trim(),
+          'pan': _panController.text.trim().isEmpty ? null : _panController.text.trim(),
+          'created_at': FieldValue.serverTimestamp(),
+          'id': DateTime.now().millisecondsSinceEpoch, // Generates integer ID like 1775786479324
+          'user_type': 'customer',
+        });
+
         if (mounted) {
             setState(() => _isLoading = false);
-            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Account created successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            Navigator.pop(context); // Return to login screen
         }
-      });
+      } on FirebaseAuthException catch (e) {
+        setState(() => _isLoading = false);
+        String message = 'Registration failed';
+        
+        if (e.code == 'weak-password') {
+          message = 'The password provided is too weak.';
+        } else if (e.code == 'email-already-in-use') {
+          message = 'An account already exists for that email.';
+        } else if (e.code == 'invalid-email') {
+          message = 'The email address is not valid.';
+        } else {
+          message = e.message ?? 'Registration failed';
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: Colors.red),
+        );
+      } catch (e) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 

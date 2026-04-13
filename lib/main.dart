@@ -7,6 +7,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'services/local_storage_service.dart';
 import 'services/push_notification_service.dart';
 
+// --- Splash Screen ---
+import 'features/splash/views/splash_screen.dart'; // Added the splash screen import
+
 // --- Auth Screens ---
 import 'features/auth/views/login_screen.dart';
 import 'features/auth/views/register_screen.dart';
@@ -47,14 +50,7 @@ void main() async {
   await LocalStorageService().init();
   await PushNotificationService().init();
 
-  // 4. FORCE LOGOUT ON EVERY APP START (Temporary for testing)
-  // Only force logout in debug mode - remove this line for production!
-  if (kDebugMode) {
-    await FirebaseAuth.instance.signOut();
-    print('🔓 Debug mode: Forced logout for testing');
-  }
-
-  // 5. Run the App
+  // 4. Run the App
   runApp(const ThangaRojaApp());
 }
 
@@ -87,9 +83,8 @@ class ThangaRojaApp extends StatelessWidget {
       ),
 
       // --- Smart Authentication Wrapper ---
-      // This automatically routes the user to the Dashboard if they are logged in,
-      // or the Login screen if they are logged out.
-      home: const AuthGate(),
+      // This automatically routes the user to the Splash Screen first.
+      home: const SplashScreen(),
 
       // --- Standard Routes (No Arguments) ---
       routes: {

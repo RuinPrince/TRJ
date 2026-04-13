@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
-import 'sidebar_menu.dart'; // Make sure this points to your actual sidebar file!
+import 'package:firebase_auth/firebase_auth.dart'; // ADDED
+import 'package:cloud_firestore/cloud_firestore.dart'; // ADDED
+import 'sidebar_menu.dart'; 
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -18,9 +20,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   int _currentIndex = 0; // For Bottom Navigation
 
-  // --- Placeholder Data (Replace with real data from Firestore/State Management) ---
-  final String userName = "John Doe";
-  final String userId = "TRJ-00124";
+  // --- Dynamic User Data Variables ---
+  String userName = "Loading...";
+  String userId = "TRJ-....";
+  
+  // --- Static Placeholder Data (Update these later with real Firestore queries) ---
   final double totalInvestment = 24500.00;
   final int activeSchemesCount = 2;
   final double goldRate = 6540.00;
@@ -42,6 +46,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
     {'name': 'Thanga Magal', 'date': '10 Mar, 2024', 'amount': 1500.0, 'status': 'Completed'},
   ];
   // ---------------------------------------------------------------------------------
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserData();
+  }
+
+  Future<void> _fetchUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        
+        if (doc.exists && mounted) {
+          setState(() {
+            // Using exact keys from your Firebase snapshot
+            userName = doc.data()?['full_name'] ?? 'Customer'; 
+            userId = "TRJ-${doc.data()?['id'] ?? '00000'}"; 
+          });
+        }
+      } catch (e) {
+        debugPrint("Error fetching user data: $e");
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,7 +128,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               backgroundColor: Colors.white,
               radius: 18,
               child: Text(
-                userName.substring(0, 2).toUpperCase(),
+                userName.length >= 2 ? userName.substring(0, 2).toUpperCase() : 'C',
                 style: TextStyle(color: primaryRed, fontWeight: FontWeight.bold, fontSize: 14),
               ),
             ),

@@ -62,10 +62,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
       // Example: authService.register(email, password, fullName, phone, etc.);
       
       Future.delayed(const Duration(seconds: 2), () {
-        setState(() => _isLoading = false);
-        // On success, either login automatically and go to dashboard, 
-        // or pop back to login screen.
-        // Navigator.pushReplacementNamed(context, '/dashboard');
+        if (mounted) {
+            setState(() => _isLoading = false);
+            Navigator.pop(context);
+        }
       });
     }
   }
@@ -316,13 +316,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             TextSpan(
                               text: 'Terms and Conditions',
                               style: TextStyle(color: primaryRed, fontWeight: FontWeight.bold),
-                              // Add gesture recognizer here to open terms modal
                             ),
                             const TextSpan(text: ' and '),
                             TextSpan(
                               text: 'Privacy Policy',
                               style: TextStyle(color: primaryRed, fontWeight: FontWeight.bold),
-                              // Add gesture recognizer here to open privacy modal
                             ),
                           ],
                         ),

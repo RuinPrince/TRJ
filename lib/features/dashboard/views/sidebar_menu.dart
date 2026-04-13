@@ -18,10 +18,11 @@ class SidebarMenu extends StatelessWidget {
   final Color deepBlack = const Color(0xFF0F172A);
   final Color textMuted = const Color(0xFF94A3B8);
 
-  void _handleLogout(BuildContext context) {
-    // TODO: Call your AuthService logout method here
-    // Example: await authService.logout();
-    // Navigator.pushReplacementNamed(context, '/login');
+  void _handleLogout(BuildContext context) async {
+    await FirebaseAuth.instance.signOut();
+    if (context.mounted) {
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+    }
   }
 
   // Helper method to build navigation links cleanly

@@ -316,7 +316,9 @@ class _SupportScreenState extends State<SupportScreen> {
           ),
           child: InkWell(
             onTap: () {
-              // Navigate to Ticket Details Chat Screen
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Ticket chat feature coming soon!'))
+              );
             },
             borderRadius: BorderRadius.circular(12),
             child: Padding(

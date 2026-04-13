@@ -230,7 +230,7 @@ class NewArrivalsWidget extends StatelessWidget {
                 ),
                 TextButton(
                   onPressed: () {
-                    // Navigate to full New Arrivals screen
+                    Navigator.pushNamed(context, '/schemes');
                   },
                   child: Text(
                     'View All',

@@ -66,15 +66,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
   }
 
   void _downloadReceipt(String transactionId) {
-    // In Flutter, we will navigate to the Receipt Screen and pass the ID
-    // Navigator.pushNamed(context, '/receipt', arguments: transactionId);
-    
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Opening receipt for $transactionId...'),
-        backgroundColor: Colors.green,
-      ),
-    );
+    // Navigate to the Receipt Screen and pass the transaction ID
+    Navigator.pushNamed(context, '/receipt', arguments: transactionId);
   }
 
   @override
@@ -270,7 +263,7 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                 if (isFailed)
                   TextButton(
                     onPressed: () {
-                      // Navigate to retry payment
+                      Navigator.pushNamed(context, '/schemes');
                     },
                     child: const Text('Retry', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
                   )

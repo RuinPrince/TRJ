@@ -318,6 +318,7 @@ class _SchemesListScreenState extends State<SchemesListScreen> {
           child: InkWell(
             onTap: () {
               // Navigate to scheme details screen
+              Navigator.pushNamed(context, '/scheme-details');
             },
             borderRadius: BorderRadius.circular(16),
             child: Padding(

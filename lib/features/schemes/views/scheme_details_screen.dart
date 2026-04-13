@@ -39,8 +39,16 @@ class _SchemeDetailsScreenState extends State<SchemeDetailsScreen> {
   ];
 
   void _handlePayment() {
-    // Navigate to Checkout/Payment Screen
-    // Navigator.pushNamed(context, '/checkout', arguments: _scheme['id']);
+    // Navigate to Checkout/Payment Screen with required arguments
+    Navigator.pushNamed(
+      context, 
+      '/checkout', 
+      arguments: {
+        'customerSchemeId': _scheme['id'],
+        'schemeName': _scheme['scheme_name'],
+        'amount': _scheme['monthly_amount'],
+      },
+    );
   }
 
   void _generateReport() {

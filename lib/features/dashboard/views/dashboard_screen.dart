@@ -48,9 +48,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       backgroundColor: softWhite,
       
-      // --- THE FIX IS HERE ---
       drawer: const SidebarMenu(currentRoute: '/dashboard'), 
-      // -----------------------
 
       // --- TOP APP BAR ---
       appBar: AppBar(
@@ -80,7 +78,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         actions: [
           // Language Switcher
           TextButton(
-            onPressed: () {},
+            onPressed: () {
+               ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Language switcher coming soon')),
+              );
+            },
             style: TextButton.styleFrom(
               backgroundColor: Colors.white.withOpacity(0.2),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -91,12 +93,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(width: 12),
           // User Avatar
-          CircleAvatar(
-            backgroundColor: Colors.white,
-            radius: 18,
-            child: Text(
-              userName.substring(0, 2).toUpperCase(),
-              style: TextStyle(color: primaryRed, fontWeight: FontWeight.bold, fontSize: 14),
+          GestureDetector(
+            onTap: () => Navigator.pushNamed(context, '/profile'),
+            child: CircleAvatar(
+              backgroundColor: Colors.white,
+              radius: 18,
+              child: Text(
+                userName.substring(0, 2).toUpperCase(),
+                style: TextStyle(color: primaryRed, fontWeight: FontWeight.bold, fontSize: 14),
+              ),
             ),
           ),
           const SizedBox(width: 16),
@@ -123,14 +128,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             // 4. Active Schemes
             _buildSectionHeader('My Active Schemes', 'Add Scheme', () {
-              // Navigate to schemes list
+              Navigator.pushNamed(context, '/schemes');
             }),
             _buildActiveSchemes(),
             const SizedBox(height: 24),
 
             // 5. Recent Payments
             _buildSectionHeader('Recent Payments', 'View All', () {
-              // Navigate to payment history
+              Navigator.pushNamed(context, '/payment-history');
             }),
             _buildRecentPayments(),
             const SizedBox(height: 20),
@@ -149,7 +154,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
           currentIndex: _currentIndex,
           onTap: (index) {
             setState(() => _currentIndex = index);
-            // Handle navigation logic here based on index
+            switch (index) {
+              case 0:
+                break; // Already on Dashboard
+              case 1:
+                Navigator.pushNamed(context, '/schemes');
+                break;
+              case 2:
+                Navigator.pushNamed(context, '/payment-history');
+                break;
+              case 3:
+                Navigator.pushNamed(context, '/profile');
+                break;
+            }
           },
           type: BottomNavigationBarType.fixed,
           selectedItemColor: primaryRed,
@@ -300,9 +317,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _buildActionBtn(Icons.currency_rupee, 'Pay Now', Colors.red, () {}),
-        _buildActionBtn(Icons.receipt_long, 'Receipts', Colors.orange, () {}),
-        _buildActionBtn(Icons.support_agent, 'Support', Colors.blue, () {}),
+        _buildActionBtn(Icons.currency_rupee, 'Pay Now', Colors.red, () {
+          Navigator.pushNamed(context, '/schemes');
+        }),
+        _buildActionBtn(Icons.receipt_long, 'Receipts', Colors.orange, () {
+          Navigator.pushNamed(context, '/payment-history');
+        }),
+        _buildActionBtn(Icons.support_agent, 'Support', Colors.blue, () {
+          Navigator.pushNamed(context, '/support');
+        }),
       ],
     );
   }
@@ -426,7 +449,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ],
                   ),
                   ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/checkout', arguments: {
+                        'customerSchemeId': 'SCHEME_ID_$index',
+                        'schemeName': scheme['name'],
+                        'amount': scheme['amount'],
+                      });
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryGold,
                       foregroundColor: Colors.white,

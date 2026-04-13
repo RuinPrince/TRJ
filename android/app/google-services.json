@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "797221656485",
+    "project_id": "digigold-app",
+    "storage_bucket": "digigold-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:797221656485:android:95db6ab89d441d576d7a4c",
+        "android_client_info": {
+          "package_name": "com.example.trj"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDj0aXoVGRKQwkkVdCrDzUD1z4yAI7I7N4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

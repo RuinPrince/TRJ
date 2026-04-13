@@ -1,0 +1,44 @@
+name: trj
+description: Thanga Roja Jewellers App
+version: 1.0.0
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  
+  # Existing packages
+  provider: ^6.0.5
+  http: ^1.1.0
+  shared_preferences: ^2.2.2
+  intl: ^0.20.2              # Applied the change for Firestore compatibility
+  
+  # Optional but recommended
+  url_launcher: ^6.2.5
+  fluttertoast: ^8.2.4
+  
+  # ============================================
+  # FIREBASE PACKAGES
+  # ============================================
+  firebase_core: ^3.15.2
+  firebase_auth: ^5.7.0
+  cloud_firestore: ^5.6.12
+  firebase_storage: ^12.4.4
+  firebase_messaging: ^15.2.10
+  
+  # Payments
+  flutter_cashfree_pg_sdk: ^2.3.2+49
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/

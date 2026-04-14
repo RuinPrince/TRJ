@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../../../main.dart'; // Adjust this path if your main.dart is located differently
+import '../../../services/local_storage_service.dart'; // Ensure this points to your new service
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -13,13 +13,24 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    
-    // Wait for 3 seconds, then transition to AuthGate
-    Timer(const Duration(seconds: 3), () {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => const AuthGate()),
-      );
-    });
+    _checkLoginState();
+  }
+
+  Future<void> _checkLoginState() async {
+    // 1. Wait for 3 seconds, just like your original code
+    await Future.delayed(const Duration(seconds: 3));
+
+    // 2. Check Local Storage for saved user data (replacing Firebase AuthGate)
+    final String? userData = await LocalStorageService().getUserData();
+
+    if (mounted) {
+      // 3. Route directly to Dashboard if logged in, otherwise to Login
+      if (userData != null && userData.isNotEmpty) {
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      } else {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    }
   }
 
   @override

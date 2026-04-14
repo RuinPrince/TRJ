@@ -13,11 +13,31 @@ class LocalStorageService {
   static const String _keyMetalRates = 'cache_metal_rates';
   static const String _keyFlashMessage = 'session_flash_message';
   static const String _keyPrefixSchemes = 'cache_schemes_';
+  static const String _keyUserData = 'user_data_key'; // Added User Auth Key
 
   /// Initialize the SharedPreferences instance.
   /// Call this once in your main.dart before runApp()
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
+  }
+
+  // ==========================================
+  // 0. AUTHENTICATION (User Session)
+  // ==========================================
+
+  /// Save the user JSON string after login
+  Future<void> saveUserData(String userJson) async {
+    await _prefs?.setString(_keyUserData, userJson);
+  }
+
+  /// Get the user JSON string to check if logged in (for AuthGate)
+  Future<String?> getUserData() async {
+    return _prefs?.getString(_keyUserData);
+  }
+
+  /// Clear the user data (Logout)
+  Future<void> clearUserData() async {
+    await _prefs?.remove(_keyUserData);
   }
 
   // ==========================================

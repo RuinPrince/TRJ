@@ -24,7 +24,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
-  final TextEditingController _aadharController = TextEditingController();
+  
+  // New Address Controllers
+  final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _cityController = TextEditingController();
+  final TextEditingController _pincodeController = TextEditingController();
   final TextEditingController _panController = TextEditingController();
   
   bool _obscurePassword = true;
@@ -40,7 +44,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
-    _aadharController.dispose();
+    _addressController.dispose();
+    _cityController.dispose();
+    _pincodeController.dispose();
     _panController.dispose();
     super.dispose();
   }
@@ -59,17 +65,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       
-      // Initialize the PHP API Service
       final authService = AuthService();
       
-      // Call the register endpoint
       final result = await authService.register(
         fullName: _fullNameController.text.trim(),
         username: _usernameController.text.trim(),
         email: _emailController.text.trim(),
         phone: _phoneController.text.trim(),
         password: _passwordController.text,
-        aadhar: _aadharController.text.trim(),
+        address: _addressController.text.trim(),
+        city: _cityController.text.trim(),
+        pincode: _pincodeController.text.trim(),
         pan: _panController.text.trim(),
       );
 
@@ -77,7 +83,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
         setState(() => _isLoading = false);
         
         if (result['success']) {
-          // Success! Show a message and pop back to the Login Screen
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Account created successfully! Please login.'),
@@ -86,7 +91,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
           );
           Navigator.pop(context); 
         } else {
-          // Show the specific error message from your PHP backend
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(result['message']), backgroundColor: Colors.red),
           );
@@ -95,7 +99,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  // Helper method to build text fields cleanly
   Widget _buildInputField({
     required String label,
     required String hint,
@@ -208,7 +211,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // 1. Logo & Brand Name
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -227,8 +229,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ],
                 ),
                 const SizedBox(height: 30),
-
-                // 2. Headings
                 const Text(
                   'Create Account',
                   style: TextStyle(
@@ -245,7 +245,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 30),
 
-                // 3. Form Fields
                 _buildInputField(
                   label: 'Full Name',
                   hint: 'John Doe',
@@ -273,7 +272,46 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _phoneController,
                 ),
                 
-                // Passwords
+                const Divider(height: 40),
+                Text(
+                  'ADDRESS DETAILS',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryGold, letterSpacing: 1.0),
+                ),
+                const SizedBox(height: 16),
+
+                _buildInputField(
+                  label: 'Complete Address',
+                  hint: '123 Main St, Appt 4B',
+                  icon: Icons.home_outlined,
+                  controller: _addressController,
+                ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _buildInputField(
+                        label: 'City',
+                        hint: 'Chennai',
+                        icon: Icons.location_city,
+                        controller: _cityController,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: _buildInputField(
+                        label: 'Pincode',
+                        hint: '600001',
+                        icon: Icons.pin_drop_outlined,
+                        keyboardType: TextInputType.number,
+                        controller: _pincodeController,
+                      ),
+                    ),
+                  ],
+                ),
+                
+                const Divider(height: 20),
+                const SizedBox(height: 10),
+
                 _buildInputField(
                   label: 'Create Password',
                   hint: '••••••••',
@@ -297,15 +335,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   },
                 ),
 
-                // Optional KYC Fields
-                _buildInputField(
-                  label: 'Aadhar Number',
-                  hint: 'XXXX XXXX XXXX',
-                  icon: Icons.credit_card,
-                  isOptional: true,
-                  keyboardType: TextInputType.number,
-                  controller: _aadharController,
-                ),
                 _buildInputField(
                   label: 'PAN Number',
                   hint: 'ABCDE1234F',
@@ -314,7 +343,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   controller: _panController,
                 ),
 
-                // 4. Terms and Conditions Checkbox
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -355,7 +383,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 30),
 
-                // 5. Submit Button
                 SizedBox(
                   width: double.infinity,
                   height: 55,
@@ -411,14 +438,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // 6. Login Link Footer
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text("Already have an account? ", style: TextStyle(color: textMuted)),
                     GestureDetector(
                       onTap: () {
-                        Navigator.pop(context); // Go back to login screen
+                        Navigator.pop(context); 
                       },
                       child: Text(
                         'Login here',

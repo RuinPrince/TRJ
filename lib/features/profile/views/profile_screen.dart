@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../../../services/local_storage_service.dart';
-import '../../profile/repositories/profile_service.dart';
+import '../../profile/repositories/profile_service.dart'; // Ensure this matches your actual path
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -50,24 +50,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadUserData();
   }
 
+  // --- OPTIMIZED LOADING ---
   Future<void> _loadUserData() async {
-    setState(() => _isLoadingData = true);
-    
-    // 1. Get logged-in user ID from local storage
+    // 1. Get logged-in user ID and basic info from local storage
     final String? userJson = await LocalStorageService().getUserData();
+    
     if (userJson != null) {
       final user = jsonDecode(userJson);
       _currentUserId = user['id'].toString();
 
-      // 2. Fetch fresh data from MySQL Database
+      // OPTIMISTIC UI UPDATE: Instantly show cached data and hide spinner
+      if (mounted) {
+        setState(() {
+          _nameController.text = user['full_name'] ?? '';
+          _emailController.text = user['email'] ?? '';
+          _phoneController.text = user['phone'] ?? '';
+          _isLoadingData = false; // Turn off spinner instantly!
+        });
+      }
+
+      // 2. Fetch fresh, heavier data from MySQL Database SILENTLY in the background
       final profileData = await _profileService.getProfile(_currentUserId);
       
       if (profileData != null && mounted) {
         setState(() {
-          _nameController.text = profileData['full_name'] ?? '';
-          _emailController.text = profileData['email'] ?? '';
-          _phoneController.text = profileData['phone'] ?? '';
-          // FIXED: Match your DB column names perfectly
+          // Update basic fields just in case they changed on another device
+          _nameController.text = profileData['full_name'] ?? _nameController.text;
+          _emailController.text = profileData['email'] ?? _emailController.text;
+          _phoneController.text = profileData['phone'] ?? _phoneController.text;
+          
+          // Populate the remaining database fields
           _dobController.text = profileData['date_of_birth'] ?? '';
           _addressController.text = profileData['address'] ?? '';
           _cityController.text = profileData['city'] ?? '';
@@ -76,9 +88,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _panController.text = profileData['pan_number'] ?? '';
         });
       }
+    } else {
+      if (mounted) setState(() => _isLoadingData = false);
     }
-    
-    if (mounted) setState(() => _isLoadingData = false);
   }
 
   @override
@@ -107,7 +119,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'full_name': _nameController.text.trim(),
         'email': _emailController.text.trim(),
         'phone': _phoneController.text.trim(),
-        // FIXED: Match your DB column names perfectly
         'date_of_birth': _dobController.text.trim(),
         'address': _addressController.text.trim(),
         'city': _cityController.text.trim(),
@@ -117,6 +128,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
       };
 
       final result = await _profileService.updateProfile(updateData);
+      
+      // Update local cache so the new name/email shows up optimisticly next time
+      if (result['success']) {
+         final String? currentUserJson = await LocalStorageService().getUserData();
+         if (currentUserJson != null) {
+            Map<String, dynamic> userCache = jsonDecode(currentUserJson);
+            userCache['full_name'] = updateData['full_name'];
+            userCache['email'] = updateData['email'];
+            userCache['phone'] = updateData['phone'];
+            await LocalStorageService().saveUserData(jsonEncode(userCache));
+         }
+      }
       
       if (mounted) {
         setState(() => _isSaving = false);

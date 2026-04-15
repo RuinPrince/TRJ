@@ -102,7 +102,13 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.diamond_outlined, color: primaryRed, size: 40),
+                    Image.asset(
+                      'assets/images/trj.png', // Path to your logo
+                      height: 60, // Adjust to match your previous icon size
+                      width: 60,  // Adjust to match your previous icon size
+                      // Optional: if your logo is a solid color and you want to tint it to primaryRed
+                      // color: primaryRed, 
+                    ),
                     const SizedBox(width: 12),
                     Text(
                       'THANGA ROJA\nJEWELLERS',

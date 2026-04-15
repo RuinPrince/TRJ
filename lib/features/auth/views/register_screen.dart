@@ -17,20 +17,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   // Form & State Variables
   final _formKey = GlobalKey<FormState>();
-  
+
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
-  
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+
   // New Address Controllers
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _pincodeController = TextEditingController();
   final TextEditingController _panController = TextEditingController();
-  
+
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   bool _agreedToTerms = false;
@@ -64,9 +65,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
-      
+
       final authService = AuthService();
-      
+
       final result = await authService.register(
         fullName: _fullNameController.text.trim(),
         username: _usernameController.text.trim(),
@@ -81,7 +82,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (mounted) {
         setState(() => _isLoading = false);
-        
+
         if (result['success']) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -89,10 +90,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
               backgroundColor: Colors.green,
             ),
           );
-          Navigator.pop(context); 
+          Navigator.pop(context);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(result['message']), backgroundColor: Colors.red),
+            SnackBar(
+                content: Text(result['message']), backgroundColor: Colors.red),
           );
         }
       }
@@ -126,11 +128,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
               children: [
                 if (!isOptional)
-                  const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                  const TextSpan(
+                      text: ' *', style: TextStyle(color: Colors.red)),
                 if (isOptional)
                   const TextSpan(
                     text: ' (OPTIONAL)',
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.normal),
+                    style:
+                        TextStyle(fontSize: 10, fontWeight: FontWeight.normal),
                   ),
               ],
             ),
@@ -145,7 +149,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               suffixIcon: isPassword
                   ? IconButton(
                       icon: Icon(
-                        (obscureText ?? false) ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                        (obscureText ?? false)
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
                         color: Colors.grey,
                       ),
                       onPressed: onToggleVisibility,
@@ -172,10 +178,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
               if (!isOptional && (value == null || value.isEmpty)) {
                 return 'This field is required';
               }
-              if (label.contains('Password') && value != null && value.length < 6) {
+              if (label.contains('Password') &&
+                  value != null &&
+                  value.length < 6) {
                 return 'Password must be at least 6 characters';
               }
-              if (label == 'Confirm Password' && value != _passwordController.text) {
+              if (label == 'Confirm Password' &&
+                  value != _passwordController.text) {
                 return 'Passwords do not match';
               }
               return null;
@@ -199,7 +208,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         title: Text(
           'Back to Login',
-          style: TextStyle(color: textMuted, fontSize: 16, fontWeight: FontWeight.w600),
+          style: TextStyle(
+              color: textMuted, fontSize: 16, fontWeight: FontWeight.w600),
         ),
         titleSpacing: 0,
       ),
@@ -214,7 +224,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.diamond_outlined, color: primaryRed, size: 36),
+                    Image.asset(
+                      'assets/images/trj.png', // Path to your logo
+                      height: 60,
+                      width: 60,
+                    ),
                     const SizedBox(width: 12),
                     Text(
                       'THANGA ROJA\nJEWELLERS',
@@ -244,7 +258,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   style: TextStyle(color: textMuted, fontSize: 14),
                 ),
                 const SizedBox(height: 30),
-
                 _buildInputField(
                   label: 'Full Name',
                   hint: 'John Doe',
@@ -271,14 +284,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   keyboardType: TextInputType.phone,
                   controller: _phoneController,
                 ),
-                
                 const Divider(height: 40),
                 Text(
                   'ADDRESS DETAILS',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: primaryGold, letterSpacing: 1.0),
+                  style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: primaryGold,
+                      letterSpacing: 1.0),
                 ),
                 const SizedBox(height: 16),
-
                 _buildInputField(
                   label: 'Complete Address',
                   hint: '123 Main St, Appt 4B',
@@ -308,10 +323,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     ),
                   ],
                 ),
-                
                 const Divider(height: 20),
                 const SizedBox(height: 10),
-
                 _buildInputField(
                   label: 'Create Password',
                   hint: '••••••••',
@@ -331,10 +344,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   isPassword: true,
                   obscureText: _obscureConfirmPassword,
                   onToggleVisibility: () {
-                    setState(() => _obscureConfirmPassword = !_obscureConfirmPassword);
+                    setState(() =>
+                        _obscureConfirmPassword = !_obscureConfirmPassword);
                   },
                 ),
-
                 _buildInputField(
                   label: 'PAN Number',
                   hint: 'ABCDE1234F',
@@ -342,7 +355,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   isOptional: true,
                   controller: _panController,
                 ),
-
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -363,17 +375,22 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     Expanded(
                       child: RichText(
                         text: TextSpan(
-                          style: TextStyle(color: textMuted, fontSize: 13, height: 1.5),
+                          style: TextStyle(
+                              color: textMuted, fontSize: 13, height: 1.5),
                           children: [
                             const TextSpan(text: 'I agree to the '),
                             TextSpan(
                               text: 'Terms and Conditions',
-                              style: TextStyle(color: primaryRed, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  color: primaryRed,
+                                  fontWeight: FontWeight.bold),
                             ),
                             const TextSpan(text: ' and '),
                             TextSpan(
                               text: 'Privacy Policy',
-                              style: TextStyle(color: primaryRed, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                  color: primaryRed,
+                                  fontWeight: FontWeight.bold),
                             ),
                           ],
                         ),
@@ -382,7 +399,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ],
                 ),
                 const SizedBox(height: 30),
-
                 SizedBox(
                   width: double.infinity,
                   height: 55,
@@ -390,7 +406,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(8),
                       gradient: const LinearGradient(
-                        colors: [Color(0xFFB4941F), Color(0xFFE5C766), Color(0xFFB4941F)],
+                        colors: [
+                          Color(0xFFB4941F),
+                          Color(0xFFE5C766),
+                          Color(0xFFB4941F)
+                        ],
                         begin: Alignment.centerLeft,
                         end: Alignment.centerRight,
                       ),
@@ -415,7 +435,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ? const SizedBox(
                               height: 24,
                               width: 24,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2),
                             )
                           : Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -437,14 +458,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text("Already have an account? ", style: TextStyle(color: textMuted)),
+                    Text("Already have an account? ",
+                        style: TextStyle(color: textMuted)),
                     GestureDetector(
                       onTap: () {
-                        Navigator.pop(context); 
+                        Navigator.pop(context);
                       },
                       child: Text(
                         'Login here',

@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../services/dashboard_service.dart'; 
-import '../../../services/auth_service.dart'; // ADDED: Import the Auth Service
+import '../../../services/auth_service.dart'; 
+import '../../../services/local_storage_service.dart'; // ADDED: For dynamic user ID
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -43,26 +45,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _fetchLiveDashboardData() async {
     setState(() => _isLoading = true);
 
-    // TODO: Replace '41' with the dynamically stored ID of the logged-in user 
-    // (e.g., from SharedPreferences or a global auth provider)
-    final String currentUserId = '41'; 
+    // 1. Get the REAL logged-in user dynamically from device storage
+    final String? userJson = await LocalStorageService().getUserData();
+    if (userJson == null) {
+      if (mounted) Navigator.pushReplacementNamed(context, '/login');
+      return;
+    }
     
+    final user = jsonDecode(userJson);
+    final String currentUserId = user['id'].toString(); 
+    
+    // 2. Fetch the live data from your Hostinger dashboard.php
     final dashboardData = await _dashboardService.getDashboardData(currentUserId);
     
     if (dashboardData != null && mounted) {
       setState(() {
         // Map the PHP JSON response to the Flutter state variables
-        userName = dashboardData['user']?['full_name'] ?? 'Customer';
-        userId = "TRJ-${dashboardData['user']?['id'] ?? '0000'}";
+        userName = dashboardData['user']?['full_name'] ?? user['full_name'] ?? 'Customer';
+        userId = "TRJ-${dashboardData['user']?['id'] ?? currentUserId}";
         
         totalInvestment = double.tryParse(dashboardData['stats']?['total_investment']?.toString() ?? '0') ?? 0.0;
         activeSchemesCount = int.tryParse(dashboardData['stats']?['active_count']?.toString() ?? '0') ?? 0;
         
+        // This will now correctly populate with the live PHP database values!
         goldRate = double.tryParse(dashboardData['rates']?['gold_22k']?.toString() ?? '0') ?? 0.0;
         silverRate = double.tryParse(dashboardData['rates']?['silver']?.toString() ?? '0') ?? 0.0;
         
-        activeSchemes = List<Map<String, dynamic>>.from(dashboardData['active_schemes'] ?? []);
-        recentPayments = List<Map<String, dynamic>>.from(dashboardData['recent_payments'] ?? []);
+        if (dashboardData['active_schemes'] != null) {
+          activeSchemes = List<Map<String, dynamic>>.from(dashboardData['active_schemes']);
+        }
+        if (dashboardData['recent_payments'] != null) {
+          recentPayments = List<Map<String, dynamic>>.from(dashboardData['recent_payments']);
+        }
       });
     }
     
@@ -71,12 +85,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // FIXED: Handle Logout
+  // Handle Logout
   Future<void> _handleLogout() async {
-    // 1. Actually delete the saved user data from the phone's memory!
     await AuthService().logout();
     
-    // 2. Route back to the login screen and clear the navigation history
     if (mounted) {
       Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     }
@@ -101,7 +113,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         title: Row(
           children: [
-            const Icon(Icons.diamond_outlined, color: Colors.white, size: 28),
+            Image.asset(
+              'assets/images/trj.png', // Ensure this path matches your asset
+              height: 50, 
+              width: 50,
+              // Optional: If your logo is a solid shape and you want it completely white 
+              // against the gradient, uncomment the line below:
+              // color: Colors.white,
+            ),
             const SizedBox(width: 8),
             const Text(
               'Dashboard',
@@ -437,7 +456,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       itemCount: activeSchemes.length,
       itemBuilder: (context, index) {
         final scheme = activeSchemes[index];
-        // Safely parse numbers from the backend response
         final double amount = double.tryParse(scheme['amount']?.toString() ?? '0') ?? 0.0;
         final int paidMonths = int.tryParse(scheme['paid_months']?.toString() ?? '0') ?? 0;
         final int tenureMonths = int.tryParse(scheme['tenure_months']?.toString() ?? '1') ?? 1;
@@ -473,7 +491,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-              // Progress Bar
               LinearProgressIndicator(
                 value: progress,
                 backgroundColor: Colors.grey.shade200,
@@ -502,7 +519,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                   ElevatedButton(
                     onPressed: () {
-                      // Note: Route to your Cashfree payment gateway session initiation screen
                       Navigator.pushNamed(context, '/checkout', arguments: {
                         'customerSchemeId': scheme['id'] ?? 'SCHEME_ID_$index',
                         'schemeName': scheme['name'] ?? '',

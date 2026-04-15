@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../../../services/local_storage_service.dart';
-import '../../../services/profile_service.dart'; // <-- FIXED IMPORT PATH
+import '../../../services/profile_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -41,6 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoadingData = true;
   bool _isSaving = false;
   String _currentUserId = '';
+  String _memberSince = 'Loading...'; // NEW: Member Since Variable
 
   final ProfileService _profileService = ProfileService();
 
@@ -48,6 +49,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   void initState() {
     super.initState();
     _loadUserData();
+  }
+
+  // Helper to format date to "14 Apr 2026"
+  String _formatDate(String dateStr) {
+    try {
+      final DateTime dt = DateTime.parse(dateStr);
+      final List<String> months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${dt.day} ${months[dt.month - 1]} ${dt.year}';
+    } catch (e) {
+      return dateStr.split(' ')[0];
+    }
   }
 
   // --- OPTIMIZED LOADING ---
@@ -81,6 +93,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _pincodeController.text = profileData['pincode'] ?? '';
           _aadharController.text = profileData['aadhar_number'] ?? '';
           _panController.text = profileData['pan_number'] ?? '';
+
+          // Extract and format the created_at date
+          if (profileData['created_at'] != null) {
+            _memberSince = _formatDate(profileData['created_at']);
+          } else {
+            _memberSince = 'N/A';
+          }
         });
       }
     } else {
@@ -265,42 +284,99 @@ class _ProfileScreenState extends State<ProfileScreen> {
       padding: const EdgeInsets.all(20),
       child: Form(
         key: _profileFormKey,
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.grey.shade200),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildSectionTitle('Basic Information'),
-              _buildTextField(label: 'Full Name', controller: _nameController, icon: Icons.person_outline),
-              _buildTextField(label: 'Email Address', controller: _emailController, icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress),
-              _buildTextField(label: 'Phone Number', controller: _phoneController, icon: Icons.phone_outlined, keyboardType: TextInputType.phone),
-              GestureDetector(
-                onTap: () => _selectDate(context),
-                child: AbsorbPointer(child: _buildTextField(label: 'Date of Birth', controller: _dobController, icon: Icons.calendar_today_outlined, isRequired: false)),
-              ),
-              const SizedBox(height: 16),
-              _buildSectionTitle('Address Details'),
-              _buildTextField(label: 'Complete Address', controller: _addressController, icon: Icons.home_outlined, maxLines: 2, isRequired: false),
-              Row(
-                children: [
-                  Expanded(child: _buildTextField(label: 'City', controller: _cityController, icon: Icons.location_city, isRequired: false)),
-                  const SizedBox(width: 16),
-                  Expanded(child: _buildTextField(label: 'Pincode', controller: _pincodeController, icon: Icons.pin_drop_outlined, keyboardType: TextInputType.number, isRequired: false)),
+        child: Column(
+          children: [
+            // ==========================================
+            // NEW ACCOUNT SUMMARY CARD
+            // ==========================================
+            Container(
+              margin: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.all(24),
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
                 ],
               ),
-              const SizedBox(height: 16),
-              _buildSectionTitle('Identity Details (Optional)'),
-              _buildTextField(label: 'Aadhar Number', controller: _aadharController, icon: Icons.credit_card, isRequired: false),
-              _buildTextField(label: 'PAN Number', controller: _panController, icon: Icons.credit_card_outlined, isRequired: false),
-              const SizedBox(height: 24),
-              _buildSubmitButton(label: 'UPDATE PROFILE', isProcessing: _isSaving, onPressed: _handleUpdateProfile),
-            ],
-          ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSummaryRow('CUSTOMER ID', 'TRJ-${_currentUserId.padLeft(5, '0')}'),
+                  const Divider(height: 30),
+                  _buildSummaryRow('PHONE', _phoneController.text.isNotEmpty ? _phoneController.text : 'Loading...'),
+                  const Divider(height: 30),
+                  _buildSummaryRow('MEMBER SINCE', _memberSince),
+                  const Divider(height: 30),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('STATUS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textMuted, letterSpacing: 1.0)),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          'BIS Hallmark Verified', 
+                          style: TextStyle(color: Colors.green.shade700, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            // ==========================================
+            // EXISTING PROFILE FORM
+            // ==========================================
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildSectionTitle('Basic Information'),
+                  _buildTextField(label: 'Full Name', controller: _nameController, icon: Icons.person_outline),
+                  _buildTextField(label: 'Email Address', controller: _emailController, icon: Icons.email_outlined, keyboardType: TextInputType.emailAddress),
+                  _buildTextField(label: 'Phone Number', controller: _phoneController, icon: Icons.phone_outlined, keyboardType: TextInputType.phone),
+                  GestureDetector(
+                    onTap: () => _selectDate(context),
+                    child: AbsorbPointer(child: _buildTextField(label: 'Date of Birth', controller: _dobController, icon: Icons.calendar_today_outlined, isRequired: false)),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildSectionTitle('Address Details'),
+                  _buildTextField(label: 'Complete Address', controller: _addressController, icon: Icons.home_outlined, maxLines: 2, isRequired: false),
+                  Row(
+                    children: [
+                      Expanded(child: _buildTextField(label: 'City', controller: _cityController, icon: Icons.location_city, isRequired: false)),
+                      const SizedBox(width: 16),
+                      Expanded(child: _buildTextField(label: 'Pincode', controller: _pincodeController, icon: Icons.pin_drop_outlined, keyboardType: TextInputType.number, isRequired: false)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildSectionTitle('Identity Details (Optional)'),
+                  _buildTextField(label: 'Aadhar Number', controller: _aadharController, icon: Icons.credit_card, isRequired: false),
+                  _buildTextField(label: 'PAN Number', controller: _panController, icon: Icons.credit_card_outlined, isRequired: false),
+                  const SizedBox(height: 24),
+                  _buildSubmitButton(label: 'UPDATE PROFILE', isProcessing: _isSaving, onPressed: _handleUpdateProfile),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -337,6 +413,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0, top: 8.0),
       child: Text(title.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: primaryGold, letterSpacing: 1.0)),
+    );
+  }
+
+  // Helper Widget for the new Summary Card
+  Widget _buildSummaryRow(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textMuted, letterSpacing: 1.0)),
+        const SizedBox(height: 4),
+        Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.black87)),
+      ],
     );
   }
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../../../services/local_storage_service.dart';
-import '../../profile/repositories/profile_service.dart'; // Ensure this matches your actual path
+import '../../../services/profile_service.dart'; // <-- FIXED IMPORT PATH
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -52,34 +52,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // --- OPTIMIZED LOADING ---
   Future<void> _loadUserData() async {
-    // 1. Get logged-in user ID and basic info from local storage
     final String? userJson = await LocalStorageService().getUserData();
     
     if (userJson != null) {
       final user = jsonDecode(userJson);
       _currentUserId = user['id'].toString();
 
-      // OPTIMISTIC UI UPDATE: Instantly show cached data and hide spinner
       if (mounted) {
         setState(() {
           _nameController.text = user['full_name'] ?? '';
           _emailController.text = user['email'] ?? '';
           _phoneController.text = user['phone'] ?? '';
-          _isLoadingData = false; // Turn off spinner instantly!
+          _isLoadingData = false; 
         });
       }
 
-      // 2. Fetch fresh, heavier data from MySQL Database SILENTLY in the background
       final profileData = await _profileService.getProfile(_currentUserId);
       
       if (profileData != null && mounted) {
         setState(() {
-          // Update basic fields just in case they changed on another device
           _nameController.text = profileData['full_name'] ?? _nameController.text;
           _emailController.text = profileData['email'] ?? _emailController.text;
           _phoneController.text = profileData['phone'] ?? _phoneController.text;
           
-          // Populate the remaining database fields
           _dobController.text = profileData['date_of_birth'] ?? '';
           _addressController.text = profileData['address'] ?? '';
           _cityController.text = profileData['city'] ?? '';
@@ -129,7 +124,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       final result = await _profileService.updateProfile(updateData);
       
-      // Update local cache so the new name/email shows up optimisticly next time
       if (result['success']) {
          final String? currentUserJson = await LocalStorageService().getUserData();
          if (currentUserJson != null) {

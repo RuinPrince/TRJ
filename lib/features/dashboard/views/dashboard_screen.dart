@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../../services/dashboard_service.dart'; // Ensure this path matches your project structure
+import '../../../services/dashboard_service.dart'; 
+import '../../../services/auth_service.dart'; // ADDED: Import the Auth Service
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -51,7 +52,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (dashboardData != null && mounted) {
       setState(() {
         // Map the PHP JSON response to the Flutter state variables
-        // Using toString() and tryParse is the safest way to handle PHP's numeric string responses
         userName = dashboardData['user']?['full_name'] ?? 'Customer';
         userId = "TRJ-${dashboardData['user']?['id'] ?? '0000'}";
         
@@ -71,9 +71,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // Handle Logout (Custom implementation replacing Firebase)
+  // FIXED: Handle Logout
   Future<void> _handleLogout() async {
-    // TODO: Clear local session/token storage (e.g., SharedPreferences.getInstance().clear())
+    // 1. Actually delete the saved user data from the phone's memory!
+    await AuthService().logout();
+    
+    // 2. Route back to the login screen and clear the navigation history
     if (mounted) {
       Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     }

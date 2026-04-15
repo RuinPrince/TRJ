@@ -1,23 +1,21 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-// Ensure you have your ApiConfig file created as discussed earlier
-import '../../../services/api_config.dart';
 
 class SchemeService {
-  
+  final String baseUrl = 'https://trj.dreamyoursinfotech.com/api';
+
   // ==========================================
   // 1. FETCH AVAILABLE SCHEMES (Global Catalog)
   // ==========================================
   Future<List<Map<String, dynamic>>> getAvailableSchemes() async {
     try {
-      // Assuming your schemes.php handles an 'action=list_active' GET request
-      final url = Uri.parse('${ApiConfig.baseUrl}/schemes.php?action=list_active');
+      final url = Uri.parse('$baseUrl/customer/schemes.php?action=list_active');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['success'] == true) {
-          return List<Map<String, dynamic>>.from(data['schemes'] ?? []);
+        if (data['success'] == true || data['status'] == 'success') {
+          return List<Map<String, dynamic>>.from(data['schemes'] ?? data['data'] ?? []);
         }
       }
       return [];
@@ -32,13 +30,13 @@ class SchemeService {
   // ==========================================
   Future<List<Map<String, dynamic>>> getCustomerSchemes(String customerId) async {
     try {
-      final url = Uri.parse('${ApiConfig.baseUrl}/customer_schemes.php?action=my_schemes&user_id=$customerId');
+      final url = Uri.parse('$baseUrl/customer/customer_schemes.php?action=my_schemes&user_id=$customerId');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        if (data['success'] == true) {
-          return List<Map<String, dynamic>>.from(data['customer_schemes'] ?? []);
+        if (data['success'] == true || data['status'] == 'success') {
+          return List<Map<String, dynamic>>.from(data['customer_schemes'] ?? data['data'] ?? []);
         }
       }
       return [];
@@ -49,15 +47,15 @@ class SchemeService {
   }
 
   // ==========================================
-  // 3. SUBMIT INQUIRY (Replaces standard Join/Checkout)
+  // 3. SUBMIT INQUIRY 
   // ==========================================
   Future<Map<String, dynamic>> submitSchemeInquiry({
     required String customerId,
     required String schemeId,
-    required String inquiryType, // e.g., 'join_request', 'payment_inquiry'
+    required String inquiryType, 
   }) async {
     try {
-      final url = Uri.parse('${ApiConfig.baseUrl}/support_tickets.php?action=create_inquiry');
+      final url = Uri.parse('$baseUrl/customer/support_tickets.php?action=create_inquiry');
       final response = await http.post(
         url,
         headers: {'Content-Type': 'application/json'},
@@ -69,8 +67,7 @@ class SchemeService {
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        return data;
+        return json.decode(response.body);
       }
       return {'success': false, 'error': 'Server error'};
     } catch (e) {

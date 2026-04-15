@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../schemes/repositories/scheme_service.dart';
+import '../../../services/scheme_service.dart'; // <-- FIXED IMPORT PATH
 import '../../../services/api_config.dart';
 
 class SchemesListScreen extends StatefulWidget {

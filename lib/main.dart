@@ -22,17 +22,14 @@ import 'features/profile/views/profile_screen.dart';
 // --- Scheme Screens ---
 import 'features/schemes/views/schemes_list_screen.dart';
 import 'features/schemes/views/scheme_details_screen.dart';
-import 'features/schemes/views/admin_schemes_screen.dart';
 
 // --- Payment Screens ---
 import 'features/payments/views/checkout_screen.dart';
-import 'features/payments/views/payment_history_screen.dart';
+import 'features/payments/views/payments_screen.dart';
 import 'features/payments/views/receipt_screen.dart';
 
 // --- Support & Settings Screens ---
 import 'features/support/views/support_screen.dart';
-import 'features/support/views/settings_screen.dart';
-import 'features/support/views/system_logs_screen.dart';
 
 // NOTE: If you used FlutterFire CLI, uncomment the line below:
 // import 'firebase_options.dart';
@@ -94,13 +91,9 @@ class ThangaRojaApp extends StatelessWidget {
         '/dashboard': (context) => const DashboardScreen(),
         '/profile': (context) => const ProfileScreen(),
         '/schemes': (context) => const SchemesListScreen(),
-        '/payment-history': (context) => const PaymentHistoryScreen(),
+        '/payment-history': (context) => const PaymentsScreen(),
         '/support': (context) => const SupportScreen(),
         
-        // Admin Routes
-        '/admin/schemes': (context) => const AdminSchemesScreen(),
-        '/admin/settings': (context) => const SettingsScreen(),
-        '/admin/logs': (context) => const SystemLogsScreen(),
       },
 
       // --- Dynamic Routes (With Arguments) ---

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../../services/support_service.dart';
+import '../../../services/api_config.dart';
 
 class SupportScreen extends StatefulWidget {
   const SupportScreen({super.key});
@@ -8,53 +10,70 @@ class SupportScreen extends StatefulWidget {
 }
 
 class _SupportScreenState extends State<SupportScreen> {
-  // Brand Colors mapped from PHP CSS
   final Color primaryRed = const Color(0xFF881337);
   final Color primaryGold = const Color(0xFFB4941F);
   final Color bgLight = const Color(0xFFF8FAFC);
   final Color textMuted = const Color(0xFF64748B);
 
-  // --- Placeholder Data (Replacing PHP PDO Fetches) ---
-  final List<Map<String, dynamic>> _activeTickets = [
-    {
-      'ticket_number': 'TICKET-20240410-A1B2C3',
-      'subject': 'Payment deduction but receipt not generated',
-      'category': 'Payment Issue',
-      'priority': 'High',
-      'status': 'Open',
-      'created_at': '10 Apr, 2024',
-    },
-    {
-      'ticket_number': 'TICKET-20240408-X9Y8Z7',
-      'subject': 'How to change my address?',
-      'category': 'Account Update',
-      'priority': 'Low',
-      'status': 'In Progress',
-      'created_at': '08 Apr, 2024',
-    },
-  ];
+  bool _isLoading = true;
+  List<Map<String, dynamic>> _activeTickets = [];
+  List<Map<String, dynamic>> _resolvedTickets = [];
 
-  final List<Map<String, dynamic>> _resolvedTickets = [
-    {
-      'ticket_number': 'TICKET-20240315-QWERTY',
-      'subject': 'Scheme maturity details',
-      'category': 'Scheme Inquiry',
-      'priority': 'Medium',
-      'status': 'Resolved',
-      'created_at': '15 Mar, 2024',
-    },
-  ];
+  final SupportService _supportService = SupportService();
 
-  // ==========================================
-  // NEW TICKET BOTTOM SHEET
-  // ==========================================
+  @override
+  void initState() {
+    super.initState();
+    _loadTickets();
+  }
+
+  Future<void> _loadTickets() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    final String? userId = ApiConfig.currentUserId;
+    if (userId == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    final allTickets = await _supportService.getTickets(userId);
+
+    if (mounted) {
+      setState(() {
+        // Split tickets based on status
+        _activeTickets = allTickets.where((t) => 
+          t['status'] != 'Resolved' && t['status'] != 'Closed'
+        ).toList();
+        
+        _resolvedTickets = allTickets.where((t) => 
+          t['status'] == 'Resolved' || t['status'] == 'Closed'
+        ).toList();
+        
+        _isLoading = false;
+      });
+    }
+  }
+
+  String _formatDate(String? dateTimeStr) {
+    if (dateTimeStr == null || dateTimeStr.isEmpty) return 'N/A';
+    try {
+      final dt = DateTime.parse(dateTimeStr);
+      final List<String> months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return '${dt.day} ${months[dt.month - 1]}, ${dt.year}';
+    } catch (e) {
+      return dateTimeStr.split(' ').first;
+    }
+  }
+
   void _showNewTicketModal() {
-    final _formKey = GlobalKey<FormState>();
-    final _subjectController = TextEditingController();
-    final _messageController = TextEditingController();
-    String _selectedCategory = 'General Inquiry';
-    String _selectedPriority = 'Low';
-    bool _isSubmitting = false;
+    final formKey = GlobalKey<FormState>();
+    final subjectController = TextEditingController();
+    final messageController = TextEditingController();
+    String selectedCategory = 'General Inquiry';
+    String selectedPriority = 'Low';
+    bool isSubmitting = false;
 
     showModalBottomSheet(
       context: context,
@@ -73,7 +92,6 @@ class _SupportScreenState extends State<SupportScreen> {
             ),
             child: Column(
               children: [
-                // Header
                 Padding(
                   padding: const EdgeInsets.all(20.0),
                   child: Row(
@@ -81,7 +99,11 @@ class _SupportScreenState extends State<SupportScreen> {
                     children: [
                       const Text(
                         'Create Support Ticket',
-                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, fontFamily: 'Playfair Display'),
+                        style: TextStyle(
+                          fontSize: 20, 
+                          fontWeight: FontWeight.bold, 
+                          fontFamily: 'Playfair Display',
+                        ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close),
@@ -92,18 +114,17 @@ class _SupportScreenState extends State<SupportScreen> {
                 ),
                 const Divider(height: 1),
                 
-                // Form
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
                     child: Form(
-                      key: _formKey,
+                      key: formKey,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           _buildTextFieldLabel('Subject'),
                           TextFormField(
-                            controller: _subjectController,
+                            controller: subjectController,
                             decoration: _inputDecoration('Brief summary of your issue'),
                             validator: (val) => val!.isEmpty ? 'Subject is required' : null,
                           ),
@@ -117,16 +138,21 @@ class _SupportScreenState extends State<SupportScreen> {
                                   children: [
                                     _buildTextFieldLabel('Category'),
                                     DropdownButtonFormField<String>(
-                                      value: _selectedCategory,
+                                      isExpanded: true, // Prevents overflow
+                                      value: selectedCategory,
                                       decoration: _inputDecoration(''),
                                       items: const [
-                                        DropdownMenuItem(value: 'Payment Issue', child: Text('Payment Issue')),
-                                        DropdownMenuItem(value: 'Scheme Inquiry', child: Text('Scheme Inquiry')),
-                                        DropdownMenuItem(value: 'Account Update', child: Text('Account Update')),
-                                        DropdownMenuItem(value: 'Technical Problem', child: Text('Technical Problem')),
-                                        DropdownMenuItem(value: 'General Inquiry', child: Text('General Inquiry')),
+                                        DropdownMenuItem(value: 'Payment Issue', child: Text('Payment Issue', overflow: TextOverflow.ellipsis)),
+                                        DropdownMenuItem(value: 'Scheme Inquiry', child: Text('Scheme Inquiry', overflow: TextOverflow.ellipsis)),
+                                        DropdownMenuItem(value: 'Account Update', child: Text('Account Update', overflow: TextOverflow.ellipsis)),
+                                        DropdownMenuItem(value: 'Technical Problem', child: Text('Technical Problem', overflow: TextOverflow.ellipsis)),
+                                        DropdownMenuItem(value: 'General Inquiry', child: Text('General Inquiry', overflow: TextOverflow.ellipsis)),
                                       ],
-                                      onChanged: (val) => setModalState(() => _selectedCategory = val!),
+                                      onChanged: (val) {
+                                        setModalState(() {
+                                          selectedCategory = val!;
+                                        });
+                                      },
                                     ),
                                   ],
                                 ),
@@ -138,14 +164,19 @@ class _SupportScreenState extends State<SupportScreen> {
                                   children: [
                                     _buildTextFieldLabel('Priority'),
                                     DropdownButtonFormField<String>(
-                                      value: _selectedPriority,
+                                      isExpanded: true, // Prevents overflow
+                                      value: selectedPriority,
                                       decoration: _inputDecoration(''),
                                       items: const [
                                         DropdownMenuItem(value: 'Low', child: Text('Low')),
                                         DropdownMenuItem(value: 'Medium', child: Text('Medium')),
                                         DropdownMenuItem(value: 'High', child: Text('High')),
                                       ],
-                                      onChanged: (val) => setModalState(() => _selectedPriority = val!),
+                                      onChanged: (val) {
+                                        setModalState(() {
+                                          selectedPriority = val!;
+                                        });
+                                      },
                                     ),
                                   ],
                                 ),
@@ -159,21 +190,23 @@ class _SupportScreenState extends State<SupportScreen> {
                             children: [
                               _buildTextFieldLabel('Message'),
                               Text(
-                                '${_messageController.text.length}/2000 chars', // Translating your JS char counter
+                                '${messageController.text.length}/2000 chars',
                                 style: TextStyle(
                                   fontSize: 10,
-                                  color: _messageController.text.length > 1800 ? Colors.red : textMuted,
+                                  color: messageController.text.length > 1800 ? Colors.red : textMuted,
                                 ),
                               ),
                             ],
                           ),
                           TextFormField(
-                            controller: _messageController,
+                            controller: messageController,
                             maxLines: 6,
                             maxLength: 2000,
-                            onChanged: (val) => setModalState(() {}), // Trigger rebuild for char counter
+                            onChanged: (val) {
+                              setModalState(() {}); 
+                            },
                             decoration: _inputDecoration('Please describe your issue in detail...').copyWith(
-                              counterText: '', // Hide default counter to use our custom one
+                              counterText: '', 
                             ),
                             validator: (val) => val!.isEmpty ? 'Message is required' : null,
                           ),
@@ -183,27 +216,47 @@ class _SupportScreenState extends State<SupportScreen> {
                             width: double.infinity,
                             height: 50,
                             child: ElevatedButton(
-                              onPressed: _isSubmitting 
+                              onPressed: isSubmitting 
                                 ? null 
-                                : () {
-                                    if (_formKey.currentState!.validate()) {
-                                      setModalState(() => _isSubmitting = true);
-                                      // TODO: Call SupportService to submit to DB
-                                      Future.delayed(const Duration(seconds: 2), () {
-                                        Navigator.pop(context);
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(content: Text('Ticket created successfully!'), backgroundColor: Colors.green),
-                                        );
+                                : () async {
+                                    if (formKey.currentState!.validate()) {
+                                      setModalState(() {
+                                        isSubmitting = true;
                                       });
+                                      
+                                      final response = await _supportService.createTicket({
+                                        'customer_id': ApiConfig.currentUserId ?? '0',
+                                        'subject': subjectController.text,
+                                        'category': selectedCategory,
+                                        'priority': selectedPriority,
+                                        'message': messageController.text,
+                                      });
+
+                                      if (mounted) {
+                                        Navigator.pop(context);
+                                        if (response['success'] == true) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            const SnackBar(content: Text('Ticket created successfully!'), backgroundColor: Colors.green),
+                                          );
+                                          _loadTickets(); // Refresh list
+                                        } else {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text(response['message'] ?? 'Failed to create ticket'), backgroundColor: Colors.red),
+                                          );
+                                        }
+                                      }
                                     }
                                   },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: primaryGold,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
-                              child: _isSubmitting 
+                              child: isSubmitting 
                                 ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                : const Text('SUBMIT TICKET', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                : const Text(
+                                    'SUBMIT TICKET', 
+                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                  ),
                             ),
                           ),
                         ],
@@ -224,21 +277,31 @@ class _SupportScreenState extends State<SupportScreen> {
       hintText: hint,
       filled: true,
       fillColor: bgLight,
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: primaryGold)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8), 
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8), 
+        borderSide: BorderSide(color: primaryGold),
+      ),
     );
   }
 
   Widget _buildTextFieldLabel(String label) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
-      child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted)),
+      child: Text(
+        label, 
+        style: TextStyle(
+          fontSize: 12, 
+          fontWeight: FontWeight.bold, 
+          color: textMuted,
+        ),
+      ),
     );
   }
 
-  // ==========================================
-  // UI BUILDER
-  // ==========================================
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
@@ -252,7 +315,14 @@ class _SupportScreenState extends State<SupportScreen> {
             icon: const Icon(Icons.arrow_back, color: Colors.white),
             onPressed: () => Navigator.pop(context),
           ),
-          title: const Text('Help & Support', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'Playfair Display')),
+          title: const Text(
+            'Help & Support', 
+            style: TextStyle(
+              color: Colors.white, 
+              fontWeight: FontWeight.bold, 
+              fontFamily: 'Playfair Display',
+            ),
+          ),
           bottom: const TabBar(
             indicatorColor: Colors.white,
             indicatorWeight: 3,
@@ -269,14 +339,19 @@ class _SupportScreenState extends State<SupportScreen> {
           onPressed: _showNewTicketModal,
           backgroundColor: primaryGold,
           icon: const Icon(Icons.add, color: Colors.white),
-          label: const Text('New Ticket', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          label: const Text(
+            'New Ticket', 
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
         ),
-        body: TabBarView(
-          children: [
-            _buildTicketList(_activeTickets),
-            _buildTicketList(_resolvedTickets),
-          ],
-        ),
+        body: _isLoading
+          ? Center(child: CircularProgressIndicator(color: primaryRed))
+          : TabBarView(
+              children: [
+                _buildTicketList(_activeTickets),
+                _buildTicketList(_resolvedTickets),
+              ],
+            ),
       ),
     );
   }
@@ -301,7 +376,7 @@ class _SupportScreenState extends State<SupportScreen> {
       itemBuilder: (context, index) {
         final ticket = tickets[index];
         final bool isOpen = ticket['status'] == 'Open';
-        final bool isResolved = ticket['status'] == 'Resolved';
+        final bool isResolved = ticket['status'] == 'Resolved' || ticket['status'] == 'Closed';
 
         Color statusColor = Colors.orange; // In Progress default
         if (isOpen) statusColor = Colors.blue;
@@ -310,9 +385,9 @@ class _SupportScreenState extends State<SupportScreen> {
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           elevation: 0,
+          color: const Color(0xFFFFF6F6), // Using your pale pink background here too
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: Colors.grey.shade200),
           ),
           child: InkWell(
             onTap: () {
@@ -322,7 +397,7 @@ class _SupportScreenState extends State<SupportScreen> {
             },
             borderRadius: BorderRadius.circular(12),
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(20.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -330,17 +405,17 @@ class _SupportScreenState extends State<SupportScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        ticket['ticket_number'],
+                        ticket['ticket_number'] ?? 'N/A',
                         style: TextStyle(color: textMuted, fontSize: 11, fontWeight: FontWeight.bold),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
                           color: statusColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          ticket['status'],
+                          ticket['status'] ?? 'Unknown',
                           style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -348,8 +423,8 @@ class _SupportScreenState extends State<SupportScreen> {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    ticket['subject'],
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ticket['subject'] ?? 'No Subject',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF1E293B)),
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -359,10 +434,13 @@ class _SupportScreenState extends State<SupportScreen> {
                         children: [
                           Icon(Icons.category_outlined, size: 14, color: textMuted),
                           const SizedBox(width: 4),
-                          Text(ticket['category'], style: TextStyle(color: textMuted, fontSize: 12)),
+                          Text(ticket['category'] ?? 'General', style: TextStyle(color: textMuted, fontSize: 12)),
                         ],
                       ),
-                      Text(ticket['created_at'], style: TextStyle(color: textMuted, fontSize: 12)),
+                      Text(
+                        _formatDate(ticket['created_at']), 
+                        style: TextStyle(color: textMuted, fontSize: 12),
+                      ),
                     ],
                   ),
                 ],

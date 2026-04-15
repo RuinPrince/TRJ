@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_cashfree_pg_sdk/api/cferrorresponse/cferrorresponse.dart';
 import 'package:flutter_cashfree_pg_sdk/api/cfpayment/cfdropcheckoutpayment.dart';
@@ -5,6 +6,9 @@ import 'package:flutter_cashfree_pg_sdk/api/cfpaymentgateway/cfpaymentgatewayser
 import 'package:flutter_cashfree_pg_sdk/api/cfsession/cfsession.dart';
 import 'package:flutter_cashfree_pg_sdk/api/cftheme/cftheme.dart';
 import 'package:flutter_cashfree_pg_sdk/utils/cfenums.dart';
+
+import '../../../services/payment_service.dart';
+import '../../../services/local_storage_service.dart';
 
 class CheckoutScreen extends StatefulWidget {
   final String customerSchemeId;
@@ -30,6 +34,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   bool _isProcessing = false;
   final CFPaymentGatewayService _cashfreeService = CFPaymentGatewayService();
+  final PaymentService _paymentService = PaymentService(); 
 
   @override
   void initState() {
@@ -37,71 +42,106 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _cashfreeService.setCallback(verifyPayment, onError);
   }
 
-  void verifyPayment(String orderId) {
-    debugPrint("Payment Success: $orderId");
-
+  void verifyPayment(String orderId) async {
+    debugPrint("Payment Success in SDK: $orderId");
+    
+    // Show a loading indicator while we talk to the server
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Payment Successful!'),
-        backgroundColor: Colors.green,
-      ),
+      const SnackBar(content: Text('Verifying payment securely...'), duration: Duration(seconds: 2)),
     );
 
-    Navigator.pop(context);
+    // Tell Hostinger to verify the order and update the database!
+    final bool isVerified = await _paymentService.verifyPaymentStatus(orderId);
+
+    if (mounted) {
+      if (isVerified) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Payment Verified & Scheme Updated!'), backgroundColor: Colors.green),
+        );
+        Navigator.pop(context, true); // Go back to previous screen
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Verification delayed. Check history shortly.'), backgroundColor: Colors.orange),
+        );
+        Navigator.pop(context, false);
+      }
+    }
   }
 
- void onError(CFErrorResponse error, String orderId) {
-  final String message = error.getMessage() ?? "";
+  void onError(CFErrorResponse error, String orderId) {
+    final String message = error.getMessage() ?? "";
 
-  debugPrint("Error: $message for Order: $orderId");
+    debugPrint("Error: $message for Order: $orderId");
 
-  setState(() => _isProcessing = false);
+    setState(() => _isProcessing = false);
 
-  ScaffoldMessenger.of(context).showSnackBar(
-    SnackBar(
-      content: Text(message.isNotEmpty ? message : 'Payment failed'),
-      backgroundColor: Colors.redAccent,
-    ),
-  );
-}
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message.isNotEmpty ? message : 'Payment failed'),
+        backgroundColor: Colors.redAccent,
+      ),
+    );
+  }
 
   Future<void> _initiatePayment() async {
     setState(() => _isProcessing = true);
 
     try {
-      final sessionId = await _fetchSessionIdFromBackend();
-      final orderId = 'ORD_${DateTime.now().millisecondsSinceEpoch}';
+      // 1. Fetch real user data from device storage
+      final String? userJson = await LocalStorageService().getUserData();
+      String customerId = '0';
+      String phone = '9999999999';
 
-      // ✅ SESSION
-      var sessionBuilder = CFSessionBuilder();
-      sessionBuilder.setEnvironment(CFEnvironment.SANDBOX);
-      sessionBuilder.setOrderId(orderId);
-      sessionBuilder.setPaymentSessionId(sessionId);
-
-      final session = sessionBuilder.build();
-
-      // ✅ THEME
-      var themeBuilder = CFThemeBuilder();
-      themeBuilder.setNavigationBarBackgroundColorColor("#881337"); // FIXED
-      themeBuilder.setNavigationBarTextColor("#FFFFFF");
-      themeBuilder.setButtonBackgroundColor("#B4941F");
-      themeBuilder.setButtonTextColor("#FFFFFF");
-
-      final theme = themeBuilder.build();
-
-      // ✅ DROP CHECKOUT
-      var dropBuilder = CFDropCheckoutPaymentBuilder();
-      dropBuilder.setSession(session!);
-      dropBuilder.setTheme(theme!);
-
-      final payment = dropBuilder.build();
-
-      if (payment != null) {
-        _cashfreeService.doPayment(payment);
-      } else {
-        throw Exception("Payment object null");
+      if (userJson != null) {
+        final user = jsonDecode(userJson);
+        customerId = user['id']?.toString() ?? '0';
+        phone = user['phone']?.toString() ?? '9999999999';
       }
 
+      // 2. Call your Hostinger create_order.php script
+      final result = await _paymentService.createCashfreeOrder(
+        customerId,
+        widget.amount,
+        phone,
+      );
+
+      if (result['status'] == 'success') {
+        // Extract the real IDs from your backend
+        final sessionId = result['payment_session_id'];
+        final orderId = result['order_id'];
+
+        // ✅ SESSION
+        var sessionBuilder = CFSessionBuilder();
+        sessionBuilder.setEnvironment(CFEnvironment.PRODUCTION); // Change to PRODUCTION when live
+        sessionBuilder.setOrderId(orderId);
+        sessionBuilder.setPaymentSessionId(sessionId);
+
+        final session = sessionBuilder.build();
+
+        // ✅ THEME
+        var themeBuilder = CFThemeBuilder();
+        themeBuilder.setNavigationBarBackgroundColorColor("#881337");
+        themeBuilder.setNavigationBarTextColor("#FFFFFF");
+        themeBuilder.setButtonBackgroundColor("#B4941F");
+        themeBuilder.setButtonTextColor("#FFFFFF");
+
+        final theme = themeBuilder.build();
+
+        // ✅ DROP CHECKOUT
+        var dropBuilder = CFDropCheckoutPaymentBuilder();
+        dropBuilder.setSession(session!);
+        dropBuilder.setTheme(theme!);
+
+        final payment = dropBuilder.build();
+
+        if (payment != null) {
+          _cashfreeService.doPayment(payment);
+        } else {
+          throw Exception("Payment object null");
+        }
+      } else {
+        throw Exception(result['message'] ?? "Failed to create order on server");
+      }
     } catch (e) {
       setState(() => _isProcessing = false);
 
@@ -112,11 +152,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         ),
       );
     }
-  }
-
-  Future<String> _fetchSessionIdFromBackend() async {
-    await Future.delayed(const Duration(seconds: 2));
-    return "session_mock_123456789";
   }
 
   @override
@@ -158,7 +193,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 child: _isProcessing
                     ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("PAY NOW"),
+                    : const Text("PAY NOW", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.0)),
               ),
             ),
           )

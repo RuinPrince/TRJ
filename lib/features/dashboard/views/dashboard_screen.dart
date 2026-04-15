@@ -2,7 +2,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../services/dashboard_service.dart'; 
 import '../../../services/auth_service.dart'; 
-import '../../../services/local_storage_service.dart'; // ADDED: For dynamic user ID
+import '../../../services/local_storage_service.dart';
+import '../../../services/scheme_service.dart'; // Add Scheme Service
+import '../../../services/payment_service.dart'; // Add Payment Service
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -12,17 +14,15 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  // Brand Colors mapped from PHP CSS
   final Color primaryRed = const Color(0xFF881337);
   final Color primaryGold = const Color(0xFFB4941F);
   final Color softWhite = const Color(0xFFFDFCFB);
   final Color textMuted = const Color(0xFF64748B);
   final Color deepBlack = const Color(0xFF0F172A);
 
-  int _currentIndex = 0; // For Bottom Navigation
+  int _currentIndex = 0; 
   bool _isLoading = true;
 
-  // --- Dynamic User Data Variables ---
   String userName = "Loading...";
   String userId = "TRJ-....";
   
@@ -35,6 +35,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   List<Map<String, dynamic>> recentPayments = [];
 
   final DashboardService _dashboardService = DashboardService();
+  final SchemeService _schemeService = SchemeService();
+  final PaymentService _paymentService = PaymentService();
 
   @override
   void initState() {
@@ -45,7 +47,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _fetchLiveDashboardData() async {
     setState(() => _isLoading = true);
 
-    // 1. Get the REAL logged-in user dynamically from device storage
     final String? userJson = await LocalStorageService().getUserData();
     if (userJson == null) {
       if (mounted) Navigator.pushReplacementNamed(context, '/login');
@@ -55,40 +56,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final user = jsonDecode(userJson);
     final String currentUserId = user['id'].toString(); 
     
-    // 2. Fetch the live data from your Hostinger dashboard.php
-    final dashboardData = await _dashboardService.getDashboardData(currentUserId);
+    // Fetch stats and lists concurrently
+    final results = await Future.wait([
+      _dashboardService.getDashboardData(currentUserId),
+      _schemeService.getCustomerSchemes(currentUserId),
+      _paymentService.getPaymentHistory(limit: 3),
+    ]);
     
-    if (dashboardData != null && mounted) {
-      setState(() {
-        // Map the PHP JSON response to the Flutter state variables
-        userName = dashboardData['user']?['full_name'] ?? user['full_name'] ?? 'Customer';
-        userId = "TRJ-${dashboardData['user']?['id'] ?? currentUserId}";
-        
-        totalInvestment = double.tryParse(dashboardData['stats']?['total_investment']?.toString() ?? '0') ?? 0.0;
-        activeSchemesCount = int.tryParse(dashboardData['stats']?['active_count']?.toString() ?? '0') ?? 0;
-        
-        // This will now correctly populate with the live PHP database values!
-        goldRate = double.tryParse(dashboardData['rates']?['gold_22k']?.toString() ?? '0') ?? 0.0;
-        silverRate = double.tryParse(dashboardData['rates']?['silver']?.toString() ?? '0') ?? 0.0;
-        
-        if (dashboardData['active_schemes'] != null) {
-          activeSchemes = List<Map<String, dynamic>>.from(dashboardData['active_schemes']);
-        }
-        if (dashboardData['recent_payments'] != null) {
-          recentPayments = List<Map<String, dynamic>>.from(dashboardData['recent_payments']);
-        }
-      });
-    }
-    
+    final dashboardData = results[0] as Map<String, dynamic>?;
+    final userSchemes = results[1] as List<Map<String, dynamic>>;
+    final userPayments = results[2] as List<Map<String, dynamic>>;
+
     if (mounted) {
-      setState(() => _isLoading = false);
+      setState(() {
+        userName = dashboardData?['user']?['full_name'] ?? user['full_name'] ?? 'Customer';
+        userId = "TRJ-${dashboardData?['user']?['id'] ?? currentUserId}";
+        
+        totalInvestment = double.tryParse(dashboardData?['stats']?['total_investment']?.toString() ?? '0') ?? 0.0;
+        
+        // Use our reliable SchemeService to populate active schemes
+        activeSchemes = userSchemes.where((s) => s['status'] == 'active').toList();
+        activeSchemesCount = activeSchemes.length;
+        
+        goldRate = double.tryParse(dashboardData?['rates']?['gold_22k']?.toString() ?? '0') ?? 0.0;
+        silverRate = double.tryParse(dashboardData?['rates']?['silver']?.toString() ?? '0') ?? 0.0;
+        
+        // Use our reliable PaymentService for recent history
+        recentPayments = userPayments;
+        
+        _isLoading = false;
+      });
     }
   }
 
-  // Handle Logout
   Future<void> _handleLogout() async {
     await AuthService().logout();
-    
     if (mounted) {
       Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     }
@@ -98,8 +100,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: softWhite,
-
-      // --- TOP APP BAR ---
       appBar: AppBar(
         automaticallyImplyLeading: false, 
         flexibleSpace: Container(
@@ -114,31 +114,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
         title: Row(
           children: [
             Image.asset(
-              'assets/images/trj.png', // Ensure this path matches your asset
+              'assets/images/trj.png', 
               height: 50, 
               width: 50,
-              // Optional: If your logo is a solid shape and you want it completely white 
-              // against the gradient, uncomment the line below:
-              // color: Colors.white,
             ),
             const SizedBox(width: 8),
             const Text(
               'Dashboard',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Playfair Display',
-              ),
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'Playfair Display'),
             ),
           ],
         ),
         actions: [
-          // Language Switcher
           TextButton(
             onPressed: () {
-               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Language switcher coming soon')),
-              );
+               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Language switcher coming soon')));
             },
             style: TextButton.styleFrom(
               backgroundColor: Colors.white.withOpacity(0.2),
@@ -149,7 +139,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: const Text('தமிழ்', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 12),
-          // User Avatar
           GestureDetector(
             onTap: () => Navigator.pushNamed(context, '/profile'),
             child: CircleAvatar(
@@ -165,7 +154,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
       
-      // --- MAIN CONTENT ---
       body: _isLoading 
         ? Center(child: CircularProgressIndicator(color: primaryRed))
         : SingleChildScrollView(
@@ -173,26 +161,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 1. Live Market Rates
                 _buildMarketRates(),
                 const SizedBox(height: 20),
-
-                // 2. Account Summary Card
                 _buildAccountSummary(),
                 const SizedBox(height: 20),
-
-                // 3. Quick Actions
                 _buildQuickActions(),
                 const SizedBox(height: 24),
-
-                // 4. Active Schemes
                 _buildSectionHeader('My Active Schemes', 'Add Scheme', () {
                   Navigator.pushNamed(context, '/schemes');
                 }),
                 _buildActiveSchemes(),
                 const SizedBox(height: 24),
-
-                // 5. Recent Payments
                 _buildSectionHeader('Recent Payments', 'View All', () {
                   Navigator.pushNamed(context, '/payment-history');
                 }),
@@ -202,35 +181,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
 
-      // --- BOTTOM NAVIGATION BAR ---
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5)),
-          ],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (index) {
-            // Intercept logout index (4) before setting state
             if (index == 4) {
               _handleLogout();
               return;
             }
-            
             setState(() => _currentIndex = index);
             switch (index) {
-              case 0:
-                break; // Already on Dashboard
-              case 1:
-                Navigator.pushNamed(context, '/schemes');
-                break;
-              case 2:
-                Navigator.pushNamed(context, '/payment-history');
-                break;
-              case 3:
-                Navigator.pushNamed(context, '/profile');
-                break;
+              case 0: break;
+              case 1: Navigator.pushNamed(context, '/schemes'); break;
+              case 2: Navigator.pushNamed(context, '/payment-history'); break;
+              case 3: Navigator.pushNamed(context, '/profile'); break;
             }
           },
           type: BottomNavigationBarType.fixed,
@@ -250,14 +217,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ==========================================
-  // WIDGET BUILDERS
-  // ==========================================
-
   Widget _buildMarketRates() {
     return Row(
       children: [
-        // Gold Rate
         Expanded(
           child: Container(
             padding: const EdgeInsets.all(16),
@@ -273,7 +235,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('GOLD 22K', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.brown.shade700)),
-                    const Icon(Icons.circle, color: Colors.green, size: 8), // Live indicator
+                    const Icon(Icons.circle, color: Colors.green, size: 8), 
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -284,7 +246,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
         const SizedBox(width: 12),
-        // Silver Rate
         Expanded(
           child: Container(
             padding: const EdgeInsets.all(16),
@@ -300,7 +261,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('SILVER', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade700)),
-                    const Icon(Icons.circle, color: Colors.green, size: 8), // Live indicator
+                    const Icon(Icons.circle, color: Colors.green, size: 8), 
                   ],
                 ),
                 const SizedBox(height: 4),
@@ -428,10 +389,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Playfair Display'),
-        ),
+        Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, fontFamily: 'Playfair Display')),
         TextButton(
           onPressed: onAction,
           child: Text(actionLabel, style: TextStyle(color: primaryRed, fontWeight: FontWeight.bold, fontSize: 12)),
@@ -456,9 +414,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
       itemCount: activeSchemes.length,
       itemBuilder: (context, index) {
         final scheme = activeSchemes[index];
-        final double amount = double.tryParse(scheme['amount']?.toString() ?? '0') ?? 0.0;
+        
+        // THE FIX: Mapping the correct DB keys from SchemeService!
+        final String schemeName = scheme['scheme_name'] ?? 'Unknown Scheme';
+        final double amount = double.tryParse(scheme['monthly_amount']?.toString() ?? '0') ?? 0.0;
         final int paidMonths = int.tryParse(scheme['paid_months']?.toString() ?? '0') ?? 0;
         final int tenureMonths = int.tryParse(scheme['tenure_months']?.toString() ?? '1') ?? 1;
+        final String nextPaymentDate = scheme['next_payment_date'] ?? 'N/A';
+        final String status = scheme['status'] ?? 'Active';
         
         final double progress = (paidMonths / tenureMonths).clamp(0.0, 1.0);
 
@@ -479,14 +442,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(scheme['name'] ?? 'Unknown Scheme', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'Playfair Display')),
+                      Text(schemeName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, fontFamily: 'Playfair Display')),
                       Text('₹$amount / Month', style: TextStyle(color: textMuted, fontSize: 12)),
                     ],
                   ),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(12)),
-                    child: Text(scheme['status'] ?? 'Active', style: TextStyle(color: Colors.green.shade700, fontSize: 10, fontWeight: FontWeight.bold)),
+                    child: Text(status.toUpperCase(), style: TextStyle(color: Colors.green.shade700, fontSize: 10, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -514,14 +477,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       Icon(Icons.calendar_month, color: primaryRed, size: 14),
                       const SizedBox(width: 4),
-                      Text('Next: ${scheme['next_payment'] ?? 'N/A'}', style: TextStyle(fontSize: 12, color: textMuted)),
+                      Text('Next: $nextPaymentDate', style: TextStyle(fontSize: 12, color: textMuted)),
                     ],
                   ),
                   ElevatedButton(
                     onPressed: () {
                       Navigator.pushNamed(context, '/checkout', arguments: {
-                        'customerSchemeId': scheme['id'] ?? 'SCHEME_ID_$index',
-                        'schemeName': scheme['name'] ?? '',
+                        'customerSchemeId': scheme['id'].toString(),
+                        'schemeName': schemeName,
                         'amount': amount,
                       });
                     },
@@ -564,18 +527,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
         separatorBuilder: (context, index) => const Divider(height: 1),
         itemBuilder: (context, index) {
           final payment = recentPayments[index];
+          
+          // THE FIX: Mapping the correct DB keys from PaymentService!
+          final String schemeName = payment['scheme_name'] ?? 'Payment';
           final double amount = double.tryParse(payment['amount']?.toString() ?? '0') ?? 0.0;
+          final String dateStr = payment['payment_date'] != null ? payment['payment_date'].toString().split(' ')[0] : 'N/A';
+          final String status = payment['status'] ?? 'completed';
           
           return ListTile(
             contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-            title: Text(payment['name'] ?? 'Payment', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            subtitle: Text(payment['date'] ?? '', style: TextStyle(color: textMuted, fontSize: 12)),
+            title: Text(schemeName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+            subtitle: Text(dateStr, style: TextStyle(color: textMuted, fontSize: 12)),
             trailing: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text('₹$amount', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
-                Text((payment['status'] ?? 'Completed').toString().toUpperCase(), style: TextStyle(fontSize: 9, color: textMuted)),
+                Text(status.toUpperCase(), style: TextStyle(fontSize: 9, color: textMuted)),
               ],
             ),
           );

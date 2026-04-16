@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../../../services/local_storage_service.dart';
 import '../../../services/profile_service.dart';
+import '../../../services/auth_service.dart'; // Added for logout from footer
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -41,7 +42,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoadingData = true;
   bool _isSaving = false;
   String _currentUserId = '';
-  String _memberSince = 'Loading...'; // NEW: Member Since Variable
+  String _memberSince = 'Loading...'; 
 
   final ProfileService _profileService = ProfileService();
 
@@ -51,7 +52,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _loadUserData();
   }
 
-  // Helper to format date to "14 Apr 2026"
   String _formatDate(String dateStr) {
     try {
       final DateTime dt = DateTime.parse(dateStr);
@@ -62,7 +62,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  // --- OPTIMIZED LOADING ---
   Future<void> _loadUserData() async {
     final String? userJson = await LocalStorageService().getUserData();
     
@@ -94,7 +93,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _aadharController.text = profileData['aadhar_number'] ?? '';
           _panController.text = profileData['pan_number'] ?? '';
 
-          // Extract and format the created_at date
           if (profileData['created_at'] != null) {
             _memberSince = _formatDate(profileData['created_at']);
           } else {
@@ -104,6 +102,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
     } else {
       if (mounted) setState(() => _isLoadingData = false);
+    }
+  }
+
+  // --- Added Logout Function for Footer ---
+  Future<void> _handleLogout() async {
+    await AuthService().logout();
+    if (mounted) {
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     }
   }
 
@@ -275,6 +281,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
+
+        // --- NEW: MATCHING BOTTOM NAVIGATION BAR ---
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
+          ),
+          child: BottomNavigationBar(
+            currentIndex: 3, // THE FIX: Hardcoded to Profile!
+            onTap: (index) {
+              if (index == 3) return; // Already on Profile
+              if (index == 4) {
+                _handleLogout();
+                return;
+              }
+              // Return to Dashboard Safely
+              if (index == 0) {
+                Navigator.popUntil(context, ModalRoute.withName('/dashboard'));
+                return;
+              }
+              // Go to Schemes or Payments
+              String route = index == 1 ? '/schemes' : '/payment-history';
+              Navigator.pushReplacementNamed(context, route);
+            },
+            type: BottomNavigationBarType.fixed,
+            selectedItemColor: primaryRed,
+            unselectedItemColor: textMuted,
+            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 10),
+            items: const [
+              BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'HOME'),
+              BottomNavigationBarItem(icon: Icon(Icons.diamond_outlined), activeIcon: Icon(Icons.diamond), label: 'SCHEMES'),
+              BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined), activeIcon: Icon(Icons.account_balance_wallet), label: 'PAY'),
+              BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'PROFILE'),
+              BottomNavigationBarItem(icon: Icon(Icons.logout, color: Colors.redAccent), activeIcon: Icon(Icons.logout), label: 'LOGOUT'),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -286,9 +329,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
         key: _profileFormKey,
         child: Column(
           children: [
-            // ==========================================
-            // NEW ACCOUNT SUMMARY CARD
-            // ==========================================
             Container(
               margin: const EdgeInsets.only(bottom: 24),
               padding: const EdgeInsets.all(24),
@@ -335,10 +375,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-
-            // ==========================================
-            // EXISTING PROFILE FORM
-            // ==========================================
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
@@ -416,7 +452,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  // Helper Widget for the new Summary Card
   Widget _buildSummaryRow(String label, String value) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

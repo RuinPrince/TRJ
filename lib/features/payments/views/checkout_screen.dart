@@ -1,13 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter_cashfree_pg_sdk/api/cferrorresponse/cferrorresponse.dart';
-import 'package:flutter_cashfree_pg_sdk/api/cfpayment/cfdropcheckoutpayment.dart';
-import 'package:flutter_cashfree_pg_sdk/api/cfpaymentgateway/cfpaymentgatewayservice.dart';
-import 'package:flutter_cashfree_pg_sdk/api/cfsession/cfsession.dart';
-import 'package:flutter_cashfree_pg_sdk/api/cftheme/cftheme.dart';
-import 'package:flutter_cashfree_pg_sdk/utils/cfenums.dart';
-
-import '../../../services/payment_service.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
 import '../../../services/local_storage_service.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -33,125 +27,50 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   final Color bgLight = const Color(0xFFF8FAFC);
 
   bool _isProcessing = false;
-  final CFPaymentGatewayService _cashfreeService = CFPaymentGatewayService();
-  final PaymentService _paymentService = PaymentService(); 
 
-  @override
-  void initState() {
-    super.initState();
-    _cashfreeService.setCallback(verifyPayment, onError);
-  }
-
-  void verifyPayment(String orderId) async {
-    debugPrint("Payment Success in SDK: $orderId");
-    
-    // Show a loading indicator while we talk to the server
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Verifying payment securely...'), duration: Duration(seconds: 2)),
-    );
-
-    // Tell Hostinger to verify the order and update the database!
-    final bool isVerified = await _paymentService.verifyPaymentStatus(orderId);
-
-    if (mounted) {
-      if (isVerified) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Payment Verified & Scheme Updated!'), backgroundColor: Colors.green),
-        );
-        Navigator.pop(context, true); // Go back to previous screen
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Verification delayed. Check history shortly.'), backgroundColor: Colors.orange),
-        );
-        Navigator.pop(context, false);
-      }
-    }
-  }
-
-  void onError(CFErrorResponse error, String orderId) {
-    final String message = error.getMessage() ?? "";
-
-    debugPrint("Error: $message for Order: $orderId");
-
-    setState(() => _isProcessing = false);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message.isNotEmpty ? message : 'Payment failed'),
-        backgroundColor: Colors.redAccent,
-      ),
-    );
-  }
-
-  Future<void> _initiatePayment() async {
+  // ==========================================
+  // MAGIC LINK: AUTO-LOGIN & REDIRECT
+  // ==========================================
+  Future<void> _launchWebPayment() async {
     setState(() => _isProcessing = true);
 
     try {
-      // 1. Fetch real user data from device storage
+      // 1. Get the currently logged-in user's ID
       final String? userJson = await LocalStorageService().getUserData();
-      String customerId = '0';
-      String phone = '9999999999';
+      if (userJson == null) throw Exception("Not logged in");
+      final user = jsonDecode(userJson);
+      final String userId = user['id'].toString();
 
-      if (userJson != null) {
-        final user = jsonDecode(userJson);
-        customerId = user['id']?.toString() ?? '0';
-        phone = user['phone']?.toString() ?? '9999999999';
-      }
-
-      // 2. Call your Hostinger create_order.php script
-      final result = await _paymentService.createCashfreeOrder(
-        customerId,
-        widget.customerSchemeId, // <-- FIXED: Passing the Scheme ID here!
-        widget.amount,
-        phone,
+      // 2. Request a secure Magic Link from your exact server domain
+      final response = await http.post(
+        Uri.parse('https://trj.dreamyoursinfotech.com/api/customer/get_payment_link.php'),
+        body: {'user_id': userId},
       );
 
-      if (result['status'] == 'success') {
-        // Extract the real IDs from your backend
-        final sessionId = result['payment_session_id'];
-        final orderId = result['order_id'];
-
-        // ✅ SESSION
-        var sessionBuilder = CFSessionBuilder();
-        sessionBuilder.setEnvironment(CFEnvironment.PRODUCTION); // Change to PRODUCTION when live
-        sessionBuilder.setOrderId(orderId);
-        sessionBuilder.setPaymentSessionId(sessionId);
-
-        final session = sessionBuilder.build();
-
-        // ✅ THEME
-        var themeBuilder = CFThemeBuilder();
-        themeBuilder.setNavigationBarBackgroundColorColor("#881337");
-        themeBuilder.setNavigationBarTextColor("#FFFFFF");
-        themeBuilder.setButtonBackgroundColor("#B4941F");
-        themeBuilder.setButtonTextColor("#FFFFFF");
-
-        final theme = themeBuilder.build();
-
-        // ✅ DROP CHECKOUT
-        var dropBuilder = CFDropCheckoutPaymentBuilder();
-        dropBuilder.setSession(session!);
-        dropBuilder.setTheme(theme!);
-
-        final payment = dropBuilder.build();
-
-        if (payment != null) {
-          _cashfreeService.doPayment(payment);
-        } else {
-          throw Exception("Payment object null");
+      final data = jsonDecode(response.body);
+      
+      if (data['status'] == 'success') {
+        // 3. Launch the Magic Link in the browser!
+        final url = Uri.parse(data['url']);
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+        
+        if (mounted) {
+          setState(() => _isProcessing = false);
+          Navigator.pop(context, true); 
         }
       } else {
-        throw Exception(result['message'] ?? "Failed to create order on server");
+         throw Exception("Failed to generate secure link");
       }
     } catch (e) {
-      setState(() => _isProcessing = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Payment init failed: $e"),
-          backgroundColor: Colors.redAccent,
-        ),
-      );
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Error connecting to payment server. Please try again."),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
     }
   }
 
@@ -162,39 +81,67 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text('Secure Checkout', style: TextStyle(color: Colors.black)),
+        title: const Text('Secure Checkout', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: Column(
         children: [
           Expanded(
-            child: Padding(
+            child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(widget.schemeName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  Text("₹${widget.amount.toStringAsFixed(2)}",
-                      style: TextStyle(fontSize: 24, color: primaryRed, fontWeight: FontWeight.bold)),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.shade200),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Icon(Icons.shield_outlined, color: Colors.green.shade600, size: 48),
+                        const SizedBox(height: 16),
+                        const Text("Payment Redirect", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        Text(
+                          "For your security, you will be redirected to our official website. You will be automatically logged in to complete this payment.",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: textMuted, height: 1.5),
+                        ),
+                        const Padding(padding: EdgeInsets.symmetric(vertical: 20), child: Divider()),
+                        Text(widget.schemeName, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 10),
+                        Text("₹${widget.amount.toStringAsFixed(2)}", style: TextStyle(fontSize: 32, color: primaryRed, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
-
-          Padding(
+          Container(
             padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
+            ),
             child: SizedBox(
               width: double.infinity,
               height: 55,
-              child: ElevatedButton(
-                onPressed: _isProcessing ? null : _initiatePayment,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: primaryGold,
-                ),
-                child: _isProcessing
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text("PAY NOW", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.0)),
+              child: ElevatedButton.icon(
+                onPressed: _isProcessing ? null : _launchWebPayment,
+                style: ElevatedButton.styleFrom(backgroundColor: primaryGold, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                icon: _isProcessing ? const SizedBox.shrink() : const Icon(Icons.open_in_browser, color: Colors.white),
+                label: _isProcessing
+                    ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                    : const Text("PROCEED TO WEB PAYMENT", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.0)),
               ),
             ),
           )

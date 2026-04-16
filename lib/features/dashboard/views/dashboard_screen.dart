@@ -6,7 +6,6 @@ import '../../../services/local_storage_service.dart';
 import '../../../services/scheme_service.dart'; 
 import '../../../services/payment_service.dart'; 
 
-// IMPORT THE SLIDESHOW WIDGET
 import 'new_arrivals_widget.dart'; 
 
 class DashboardScreen extends StatefulWidget {
@@ -23,7 +22,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final Color textMuted = const Color(0xFF64748B);
   final Color deepBlack = const Color(0xFF0F172A);
 
-  int _currentIndex = 0; 
   bool _isLoading = true;
 
   String userName = "Loading...";
@@ -36,7 +34,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   List<Map<String, dynamic>> activeSchemes = [];
   List<Map<String, dynamic>> recentPayments = [];
-  List<Map<String, dynamic>> newArrivals = []; // NEW: For the slideshow
+  List<Map<String, dynamic>> newArrivals = []; 
 
   final DashboardService _dashboardService = DashboardService();
   final SchemeService _schemeService = SchemeService();
@@ -60,12 +58,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final user = jsonDecode(userJson);
     final String currentUserId = user['id'].toString(); 
     
-    // Fetch stats, schemes, payments, AND the live new arrivals concurrently
     final results = await Future.wait([
       _dashboardService.getDashboardData(currentUserId),
       _schemeService.getCustomerSchemes(currentUserId),
       _paymentService.getPaymentHistory(limit: 3),
-      _dashboardService.getLiveNewArrivals(), // NEW API CALL
+      _dashboardService.getLiveNewArrivals(), 
     ]);
     
     final dashboardData = results[0] as Map<String, dynamic>?;
@@ -87,7 +84,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         silverRate = double.tryParse(dashboardData?['rates']?['silver']?.toString() ?? '0') ?? 0.0;
         
         recentPayments = userPayments;
-        newArrivals = liveArrivals; // Store the live database items for the slideshow
+        newArrivals = liveArrivals; 
         
         _isLoading = false;
       });
@@ -107,6 +104,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: softWhite,
       appBar: AppBar(
         automaticallyImplyLeading: false, 
+        toolbarHeight: 65, 
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -120,13 +118,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Image.asset(
               'assets/images/trj.png', 
-              height: 50, 
-              width: 50,
+              height: 45, 
+              width: 45,
             ),
-            const SizedBox(width: 8),
-            const Text(
-              'Dashboard',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontFamily: 'Playfair Display'),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Dashboard',
+                    style: TextStyle(
+                      color: Colors.white, 
+                      fontWeight: FontWeight.bold, 
+                      fontFamily: 'Playfair Display',
+                      fontSize: 18,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Welcome, $userName',
+                    style: const TextStyle(
+                      color: Colors.white70, 
+                      fontSize: 12, 
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -168,13 +190,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 _buildMarketRates(),
                 const SizedBox(height: 24),
-                
-                // --- LIVE SLIDESHOW INJECTED HERE ---
                 if (newArrivals.isNotEmpty) ...[
                   NewArrivalsWidget(items: newArrivals),
                   const SizedBox(height: 20),
                 ],
-                
                 _buildAccountSummary(),
                 const SizedBox(height: 20),
                 _buildQuickActions(),
@@ -198,15 +217,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
         ),
         child: BottomNavigationBar(
-          currentIndex: _currentIndex,
+          currentIndex: 0, // THE FIX: Hardcoded to Home!
           onTap: (index) {
+            if (index == 0) return; // Already on Home
             if (index == 4) {
               _handleLogout();
               return;
             }
-            setState(() => _currentIndex = index);
+            // THE FIX: Do not use setState here. Just push the screen!
             switch (index) {
-              case 0: break;
               case 1: Navigator.pushNamed(context, '/schemes'); break;
               case 2: Navigator.pushNamed(context, '/payment-history'); break;
               case 3: Navigator.pushNamed(context, '/profile'); break;

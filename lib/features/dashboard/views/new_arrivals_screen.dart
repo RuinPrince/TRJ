@@ -35,12 +35,16 @@ class _NewArrivalsScreenState extends State<NewArrivalsScreen> {
     }
   }
 
-  Future<void> _launchWhatsApp(String urlString) async {
+  Future<void> _launchWhatsApp(BuildContext context, String urlString) async {
     final url = Uri.parse(urlString);
-    if (await canLaunchUrl(url)) {
+    try {
       await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      debugPrint('Could not launch WhatsApp');
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open WhatsApp.')),
+        );
+      }
     }
   }
 
@@ -125,7 +129,7 @@ class _NewArrivalsScreenState extends State<NewArrivalsScreen> {
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton.icon(
-                                onPressed: () => _launchWhatsApp(item['whatsapp_url']),
+                                onPressed: () => _launchWhatsApp(context, item['whatsapp_url']),
                                 icon: const Icon(Icons.chat, size: 14, color: Colors.white),
                                 label: const Text('ENQUIRE', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                                 style: ElevatedButton.styleFrom(

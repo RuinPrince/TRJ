@@ -42,14 +42,16 @@ class _SupportScreenState extends State<SupportScreen> {
 
     if (mounted) {
       setState(() {
-        // Split tickets based on status
-        _activeTickets = allTickets.where((t) => 
-          t['status'] != 'Resolved' && t['status'] != 'Closed'
-        ).toList();
+        // THE FIX: Convert to lowercase to make the filter case-insensitive!
+        _activeTickets = allTickets.where((t) {
+          final status = (t['status'] ?? '').toString().toLowerCase();
+          return status != 'resolved' && status != 'closed';
+        }).toList();
         
-        _resolvedTickets = allTickets.where((t) => 
-          t['status'] == 'Resolved' || t['status'] == 'Closed'
-        ).toList();
+        _resolvedTickets = allTickets.where((t) {
+          final status = (t['status'] ?? '').toString().toLowerCase();
+          return status == 'resolved' || status == 'closed';
+        }).toList();
         
         _isLoading = false;
       });
@@ -138,7 +140,7 @@ class _SupportScreenState extends State<SupportScreen> {
                                   children: [
                                     _buildTextFieldLabel('Category'),
                                     DropdownButtonFormField<String>(
-                                      isExpanded: true, // Prevents overflow
+                                      isExpanded: true,
                                       value: selectedCategory,
                                       decoration: _inputDecoration(''),
                                       items: const [
@@ -164,7 +166,7 @@ class _SupportScreenState extends State<SupportScreen> {
                                   children: [
                                     _buildTextFieldLabel('Priority'),
                                     DropdownButtonFormField<String>(
-                                      isExpanded: true, // Prevents overflow
+                                      isExpanded: true,
                                       value: selectedPriority,
                                       decoration: _inputDecoration(''),
                                       items: const [
@@ -375,8 +377,11 @@ class _SupportScreenState extends State<SupportScreen> {
       itemCount: tickets.length,
       itemBuilder: (context, index) {
         final ticket = tickets[index];
-        final bool isOpen = ticket['status'] == 'Open';
-        final bool isResolved = ticket['status'] == 'Resolved' || ticket['status'] == 'Closed';
+        
+        // THE FIX: Case-insensitive status checking for UI styling
+        final statusStr = (ticket['status'] ?? '').toString().toLowerCase();
+        final bool isOpen = statusStr == 'open';
+        final bool isResolved = statusStr == 'resolved' || statusStr == 'closed';
 
         Color statusColor = Colors.orange; // In Progress default
         if (isOpen) statusColor = Colors.blue;
@@ -385,7 +390,7 @@ class _SupportScreenState extends State<SupportScreen> {
         return Card(
           margin: const EdgeInsets.only(bottom: 12),
           elevation: 0,
-          color: const Color(0xFFFFF6F6), // Using your pale pink background here too
+          color: const Color(0xFFFFF6F6), 
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -415,6 +420,7 @@ class _SupportScreenState extends State<SupportScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
+                          // Shows exactly what the DB sends (e.g. "resolved") but colored correctly
                           ticket['status'] ?? 'Unknown',
                           style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
                         ),

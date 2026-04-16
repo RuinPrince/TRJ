@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../services/scheme_service.dart'; 
 import '../../../services/api_config.dart';
+import '../../../services/auth_service.dart'; // Needed for logout
 
 class SchemesListScreen extends StatefulWidget {
   const SchemesListScreen({super.key});
@@ -53,6 +54,13 @@ class _SchemesListScreenState extends State<SchemesListScreen> {
             
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _handleLogout() async {
+    await AuthService().logout();
+    if (mounted) {
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     }
   }
 
@@ -199,6 +207,43 @@ class _SchemesListScreenState extends State<SchemesListScreen> {
         body: _isLoading 
           ? Center(child: CircularProgressIndicator(color: primaryRed))
           : TabBarView(children: [_buildAvailableSchemesTab(), _buildMySchemesTab()]),
+          
+        // --- ADDED FOOTER NAVIGATION ---
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
+          ),
+          child: BottomNavigationBar(
+            currentIndex: 1, // THE FIX: Hardcoded to Schemes!
+            onTap: (index) {
+              if (index == 1) return; // Already on Schemes
+              if (index == 4) {
+                _handleLogout();
+                return;
+              }
+              // If they click home, safely clear the stack back to dashboard!
+              if (index == 0) {
+                Navigator.popUntil(context, ModalRoute.withName('/dashboard'));
+                return;
+              }
+              // For others, replace the current screen
+              String route = index == 2 ? '/payment-history' : '/profile';
+              Navigator.pushReplacementNamed(context, route);
+            },
+            type: BottomNavigationBarType.fixed,
+            selectedItemColor: primaryRed,
+            unselectedItemColor: textMuted,
+            selectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10),
+            unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 10),
+            items: const [
+              BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'HOME'),
+              BottomNavigationBarItem(icon: Icon(Icons.diamond_outlined), activeIcon: Icon(Icons.diamond), label: 'SCHEMES'),
+              BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined), activeIcon: Icon(Icons.account_balance_wallet), label: 'PAY'),
+              BottomNavigationBarItem(icon: Icon(Icons.person_outline), activeIcon: Icon(Icons.person), label: 'PROFILE'),
+              BottomNavigationBarItem(icon: Icon(Icons.logout, color: Colors.redAccent), activeIcon: Icon(Icons.logout), label: 'LOGOUT'),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -228,11 +273,10 @@ class _SchemesListScreenState extends State<SchemesListScreen> {
                   children: [
                     Text(scheme['scheme_name'] ?? 'Scheme', style: TextStyle(fontSize: 18, color: textDark, fontWeight: FontWeight.bold)),
                     
-                    // The specific Gold Pill Badge
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFDF2D9), // Light gold from screenshot
+                        color: const Color(0xFFFDF2D9), 
                         borderRadius: BorderRadius.circular(20)
                       ),
                       child: Text(schemeType, style: TextStyle(color: primaryGold, fontSize: 10, fontWeight: FontWeight.bold)),
@@ -268,7 +312,6 @@ class _SchemesListScreenState extends State<SchemesListScreen> {
                 Text(scheme['description'] ?? 'Save monthly and get 100% off on making charges at maturity.', style: TextStyle(color: textMuted, fontSize: 13, height: 1.4)),
                 const SizedBox(height: 20),
                 
-                // Exact Outlined Gold Button
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton(
@@ -321,11 +364,10 @@ class _SchemesListScreenState extends State<SchemesListScreen> {
                     children: [
                       Text(scheme['scheme_name'] ?? 'Scheme', style: TextStyle(fontSize: 18, color: textDark, fontWeight: FontWeight.bold)),
                       
-                      // The specific Green Pill Badge
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE6F4EA), // Light green from screenshot
+                          color: const Color(0xFFE6F4EA), 
                           borderRadius: BorderRadius.circular(20)
                         ),
                         child: Text(status, style: TextStyle(color: Colors.green.shade700, fontSize: 10, fontWeight: FontWeight.bold)),
@@ -334,7 +376,6 @@ class _SchemesListScreenState extends State<SchemesListScreen> {
                   ),
                   const SizedBox(height: 16),
                   
-                  // Progress Bar 
                   LinearProgressIndicator(
                     value: progress, 
                     backgroundColor: Colors.grey.shade300, 
@@ -353,7 +394,6 @@ class _SchemesListScreenState extends State<SchemesListScreen> {
                   
                   const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Divider(height: 1, color: Colors.black12)),
                   
-                  // Bottom Row Layout
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     crossAxisAlignment: CrossAxisAlignment.end,
@@ -373,7 +413,6 @@ class _SchemesListScreenState extends State<SchemesListScreen> {
                         ],
                       ),
                       
-                      // Exact Maroon Button (Aligned Right, Not Full Width)
                       ElevatedButton(
                         onPressed: () {
                           Navigator.pushNamed(

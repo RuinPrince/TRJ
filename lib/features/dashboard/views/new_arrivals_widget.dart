@@ -13,13 +13,18 @@ class NewArrivalsWidget extends StatelessWidget {
   final Color primaryGold = const Color(0xFFB4941F);
   final Color textMuted = const Color(0xFF64748B);
 
-  // Launch the exact URL provided by the web API
-  Future<void> _launchWhatsApp(String urlString) async {
+  // THE FIX: Bypass the Android intent check and force launch
+  Future<void> _launchWhatsApp(BuildContext context, String urlString) async {
     final url = Uri.parse(urlString);
-    if (await canLaunchUrl(url)) {
+    try {
+      // mode: LaunchMode.externalApplication forces it to leave the app
       await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      debugPrint('Could not launch WhatsApp');
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open WhatsApp. Please ensure it is installed.')),
+        );
+      }
     }
   }
 
@@ -91,7 +96,7 @@ class NewArrivalsWidget extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: () {
                     Navigator.pop(context);
-                    _launchWhatsApp(item['whatsapp_url']); // Use server-generated link
+                    _launchWhatsApp(context, item['whatsapp_url']); // Use server-generated link
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF25D366), 

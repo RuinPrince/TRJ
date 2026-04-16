@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
@@ -27,21 +29,50 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     super.dispose();
   }
 
-  void _handleResetRequest() {
+  // ==========================================
+  // REAL API CONNECTION TO HOSTINGER
+  // ==========================================
+  Future<void> _handleResetRequest() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       
-      // TODO: Connect to AuthService (Firebase) here
-      // Example: await FirebaseAuth.instance.sendPasswordResetEmail(email: _emailController.text);
-      
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-            _emailSent = true;
-          });
+      try {
+        // Change this URL to match where you put the PHP file on Hostinger
+        final url = Uri.parse('https://trj.dreamyoursinfotech.com/api/customer/forgot_password_api.php');
+        
+        final response = await http.post(
+          url,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'email': _emailController.text.trim()}),
+        );
+
+        if (response.statusCode == 200) {
+          final result = jsonDecode(response.body);
+          
+          if (mounted) {
+            if (result['status'] == 'success') {
+              setState(() {
+                _isLoading = false;
+                _emailSent = true;
+              });
+            } else {
+              setState(() => _isLoading = false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(result['message'] ?? 'Failed to send reset link'), backgroundColor: Colors.red),
+              );
+            }
+          }
+        } else {
+          throw Exception('Server returned ${response.statusCode}');
         }
-      });
+      } catch (e) {
+        if (mounted) {
+          setState(() => _isLoading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Network error. Please check your connection.'), backgroundColor: Colors.red),
+          );
+        }
+      }
     }
   }
 
@@ -65,7 +96,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                // 1. Logo & Brand Name
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -85,7 +115,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ),
                 const SizedBox(height: 30),
 
-                // 2. Subtitle Tag (Matches PHP letter-spacing: 2px)
                 Text(
                   'PASSWORD RECOVERY',
                   style: TextStyle(
@@ -97,7 +126,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 ),
                 const SizedBox(height: 30),
 
-                // 3. Conditional UI: Form vs Success Message
                 if (_emailSent)
                   _buildSuccessMessage()
                 else
@@ -105,7 +133,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
                 const SizedBox(height: 40),
 
-                // 4. Return to Login Link
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
                   child: Row(
@@ -136,7 +163,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Instruction Box (Translating .instruction-box from PHP)
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -160,7 +186,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
         const SizedBox(height: 30),
 
-        // Email Field
         const Text(
           'EMAIL ADDRESS',
           style: TextStyle(
@@ -204,7 +229,6 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
         const SizedBox(height: 24),
 
-        // Submit Button
         SizedBox(
           width: double.infinity,
           height: 55,
@@ -239,9 +263,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       width: 24,
                       child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                     )
-                  : Row(
+                  : const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      children: const [
+                      children: [
                         Icon(Icons.send_outlined, color: Colors.white, size: 18),
                         SizedBox(width: 8),
                         Text(

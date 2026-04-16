@@ -16,6 +16,7 @@ import 'features/auth/views/forgot_password_screen.dart';
 // --- Dashboard & Core Screens ---
 import 'features/dashboard/views/dashboard_screen.dart';
 import 'features/profile/views/profile_screen.dart';
+import 'features/dashboard/views/new_arrivals_screen.dart'; // <-- NEW SCREEN IMPORT
 
 // --- Scheme Screens ---
 import 'features/schemes/views/schemes_list_screen.dart';
@@ -83,6 +84,7 @@ class ThangaRojaApp extends StatelessWidget {
         '/schemes': (context) => const SchemesListScreen(),
         '/payment-history': (context) => const PaymentsScreen(),
         '/support': (context) => const SupportScreen(),
+        '/new-arrivals': (context) => const NewArrivalsScreen(), // <-- NEW ROUTE ADDED
       },
 
       // --- Dynamic Routes (With Arguments) ---

@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import '../../../services/dashboard_service.dart'; 
 import '../../../services/auth_service.dart'; 
 import '../../../services/local_storage_service.dart';
-import '../../../services/scheme_service.dart'; // Add Scheme Service
-import '../../../services/payment_service.dart'; // Add Payment Service
+import '../../../services/scheme_service.dart'; 
+import '../../../services/payment_service.dart'; 
+
+// IMPORT THE SLIDESHOW WIDGET
+import 'new_arrivals_widget.dart'; 
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -33,6 +36,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   List<Map<String, dynamic>> activeSchemes = [];
   List<Map<String, dynamic>> recentPayments = [];
+  List<Map<String, dynamic>> newArrivals = []; // NEW: For the slideshow
 
   final DashboardService _dashboardService = DashboardService();
   final SchemeService _schemeService = SchemeService();
@@ -56,16 +60,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final user = jsonDecode(userJson);
     final String currentUserId = user['id'].toString(); 
     
-    // Fetch stats and lists concurrently
+    // Fetch stats, schemes, payments, AND the live new arrivals concurrently
     final results = await Future.wait([
       _dashboardService.getDashboardData(currentUserId),
       _schemeService.getCustomerSchemes(currentUserId),
       _paymentService.getPaymentHistory(limit: 3),
+      _dashboardService.getLiveNewArrivals(), // NEW API CALL
     ]);
     
     final dashboardData = results[0] as Map<String, dynamic>?;
     final userSchemes = results[1] as List<Map<String, dynamic>>;
     final userPayments = results[2] as List<Map<String, dynamic>>;
+    final liveArrivals = results[3] as List<Map<String, dynamic>>;
 
     if (mounted) {
       setState(() {
@@ -74,15 +80,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         
         totalInvestment = double.tryParse(dashboardData?['stats']?['total_investment']?.toString() ?? '0') ?? 0.0;
         
-        // Use our reliable SchemeService to populate active schemes
         activeSchemes = userSchemes.where((s) => s['status'] == 'active').toList();
         activeSchemesCount = activeSchemes.length;
         
         goldRate = double.tryParse(dashboardData?['rates']?['gold_22k']?.toString() ?? '0') ?? 0.0;
         silverRate = double.tryParse(dashboardData?['rates']?['silver']?.toString() ?? '0') ?? 0.0;
         
-        // Use our reliable PaymentService for recent history
         recentPayments = userPayments;
+        newArrivals = liveArrivals; // Store the live database items for the slideshow
         
         _isLoading = false;
       });
@@ -162,7 +167,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildMarketRates(),
-                const SizedBox(height: 20),
+                const SizedBox(height: 24),
+                
+                // --- LIVE SLIDESHOW INJECTED HERE ---
+                if (newArrivals.isNotEmpty) ...[
+                  NewArrivalsWidget(items: newArrivals),
+                  const SizedBox(height: 20),
+                ],
+                
                 _buildAccountSummary(),
                 const SizedBox(height: 20),
                 _buildQuickActions(),
@@ -415,7 +427,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       itemBuilder: (context, index) {
         final scheme = activeSchemes[index];
         
-        // THE FIX: Mapping the correct DB keys from SchemeService!
         final String schemeName = scheme['scheme_name'] ?? 'Unknown Scheme';
         final double amount = double.tryParse(scheme['monthly_amount']?.toString() ?? '0') ?? 0.0;
         final int paidMonths = int.tryParse(scheme['paid_months']?.toString() ?? '0') ?? 0;
@@ -528,7 +539,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         itemBuilder: (context, index) {
           final payment = recentPayments[index];
           
-          // THE FIX: Mapping the correct DB keys from PaymentService!
           final String schemeName = payment['scheme_name'] ?? 'Payment';
           final double amount = double.tryParse(payment['amount']?.toString() ?? '0') ?? 0.0;
           final String dateStr = payment['payment_date'] != null ? payment['payment_date'].toString().split(' ')[0] : 'N/A';

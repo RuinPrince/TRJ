@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class NewArrivalsWidget extends StatelessWidget {
   final List<Map<String, dynamic>> items;
@@ -8,25 +9,21 @@ class NewArrivalsWidget extends StatelessWidget {
     required this.items,
   });
 
-  // Brand Colors
   final Color primaryRed = const Color(0xFF881337);
   final Color primaryGold = const Color(0xFFB4941F);
   final Color textMuted = const Color(0xFF64748B);
 
-  // Helper method to trigger WhatsApp (requires url_launcher package)
-  void _launchWhatsApp(String phone, String itemName, String weight) {
-    // Clean phone number
-    final cleanPhone = phone.replaceAll(RegExp(r'\s+'), '').replaceAll('+', '');
-    final message = "Hello, I'm interested in this gold item:\nModel: $itemName\nWeight: $weight grams";
-    
-    // final url = Uri.parse('https://wa.me/$cleanPhone?text=${Uri.encodeComponent(message)}');
-    // launchUrl(url, mode: LaunchMode.externalApplication);
-    
-    debugPrint('Launching WhatsApp for $itemName to $cleanPhone');
+  // Launch the exact URL provided by the web API
+  Future<void> _launchWhatsApp(String urlString) async {
+    final url = Uri.parse(urlString);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      debugPrint('Could not launch WhatsApp');
+    }
   }
 
   void _showItemDetails(BuildContext context, Map<String, dynamic> item) {
-    // This replicates the Bootstrap Modal from your PHP code
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -39,7 +36,6 @@ class NewArrivalsWidget extends StatelessWidget {
         ),
         child: Column(
           children: [
-            // Modal Header
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
@@ -47,79 +43,47 @@ class NewArrivalsWidget extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      item['name'],
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: 'Playfair Display',
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                      item['name'] ?? 'Item',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, fontFamily: 'Playfair Display'),
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
+                  IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
                 ],
               ),
             ),
             
-            // Image
             Container(
               height: 250,
               width: double.infinity,
               color: Colors.grey.shade100,
               child: Image.network(
-                item['image_url'],
+                item['image_url'] ?? '',
                 fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => 
-                    Icon(Icons.image_not_supported, size: 50, color: Colors.grey.shade400),
+                errorBuilder: (context, error, stackTrace) => Icon(Icons.image_not_supported, size: 50, color: Colors.grey.shade400),
               ),
             ),
             
-            // Details
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'PRODUCT DETAILS',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF64748B),
-                        letterSpacing: 1.0,
-                      ),
-                    ),
+                    const Text('PRODUCT DETAILS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 1.0)),
                     const SizedBox(height: 12),
                     _buildDetailRow('Weight', '${item['weight']} Grams', isBold: true),
                     _buildDetailRow('Availability', 'In Stock', valueColor: Colors.green),
                     _buildDetailRow('Valid Until', item['expires_at'], valueColor: primaryRed),
-                    
                     const SizedBox(height: 24),
-                    const Text(
-                      'DESCRIPTION',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF64748B),
-                        letterSpacing: 1.0,
-                      ),
-                    ),
+                    const Text('DESCRIPTION', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF64748B), letterSpacing: 1.0)),
                     const SizedBox(height: 8),
-                    Text(
-                      item['description'] ?? 'No description available.',
-                      style: TextStyle(color: textMuted, height: 1.5),
-                    ),
+                    Text(item['description'] ?? 'No description available.', style: TextStyle(color: textMuted, height: 1.5)),
                   ],
                 ),
               ),
             ),
             
-            // WhatsApp Button Footer
             Padding(
               padding: const EdgeInsets.all(20.0),
               child: SizedBox(
@@ -127,20 +91,15 @@ class NewArrivalsWidget extends StatelessWidget {
                 child: ElevatedButton.icon(
                   onPressed: () {
                     Navigator.pop(context);
-                    _launchWhatsApp(item['phone'], item['name'], item['weight']);
+                    _launchWhatsApp(item['whatsapp_url']); // Use server-generated link
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF25D366), // WhatsApp Green
+                    backgroundColor: const Color(0xFF25D366), 
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
                   icon: const Icon(Icons.chat, color: Colors.white),
-                  label: const Text(
-                    'GET BEST PRICE',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 0.5),
-                  ),
+                  label: const Text('ENQUIRE ON WHATSAPP', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
                 ),
               ),
             ),
@@ -157,13 +116,7 @@ class NewArrivalsWidget extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: const TextStyle(color: Colors.grey)),
-          Text(
-            value,
-            style: TextStyle(
-              color: valueColor ?? Colors.black87,
-              fontWeight: isBold || valueColor != null ? FontWeight.bold : FontWeight.normal,
-            ),
-          ),
+          Text(value, style: TextStyle(color: valueColor ?? Colors.black87, fontWeight: isBold || valueColor != null ? FontWeight.bold : FontWeight.normal)),
         ],
       ),
     );
@@ -171,77 +124,30 @@ class NewArrivalsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (items.isEmpty) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey.shade200),
-        ),
-        child: Column(
-          children: [
-            Icon(Icons.diamond_outlined, size: 40, color: Colors.grey.shade300),
-            const SizedBox(height: 12),
-            const Text(
-              'No New Arrivals',
-              style: TextStyle(fontFamily: 'Playfair Display', fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Check back later for exclusive gold items.',
-              style: TextStyle(color: textMuted, fontSize: 12),
-            ),
-          ],
-        ),
-      );
-    }
+    if (items.isEmpty) return const SizedBox.shrink();
 
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          )
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Widget Header
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'New Arrivals',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: 'Playfair Display',
-                  ),
-                ),
+                const Text('New Arrivals', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, fontFamily: 'Playfair Display')),
                 TextButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/schemes');
-                  },
-                  child: Text(
-                    'View All',
-                    style: TextStyle(color: primaryRed, fontSize: 12, fontWeight: FontWeight.bold),
-                  ),
+                  onPressed: () => Navigator.pushNamed(context, '/new-arrivals'), // FIXED ROUTE
+                  child: Text('View All', style: TextStyle(color: primaryRed, fontSize: 12, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
           ),
-          
-          // Horizontal Scrollable List
           SizedBox(
             height: 180,
             child: ListView.builder(
@@ -250,7 +156,6 @@ class NewArrivalsWidget extends StatelessWidget {
               itemCount: items.length,
               itemBuilder: (context, index) {
                 final item = items[index];
-                
                 return GestureDetector(
                   onTap: () => _showItemDetails(context, item),
                   child: Container(
@@ -260,18 +165,10 @@ class NewArrivalsWidget extends StatelessWidget {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.grey.shade200),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.03),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        )
-                      ],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Image Portion
                         Expanded(
                           child: ClipRRect(
                             borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
@@ -281,10 +178,9 @@ class NewArrivalsWidget extends StatelessWidget {
                                   width: double.infinity,
                                   color: Colors.grey.shade100,
                                   child: Image.network(
-                                    item['image_url'],
+                                    item['image_url'] ?? '',
                                     fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => 
-                                        Icon(Icons.image, color: Colors.grey.shade300),
+                                    errorBuilder: (context, error, stackTrace) => Icon(Icons.image, color: Colors.grey.shade300),
                                   ),
                                 ),
                                 Positioned(
@@ -292,40 +188,22 @@ class NewArrivalsWidget extends StatelessWidget {
                                   right: 6,
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.9),
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Text(
-                                      '${item['weight']}g',
-                                      style: TextStyle(color: primaryRed, fontSize: 10, fontWeight: FontWeight.bold),
-                                    ),
+                                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), borderRadius: BorderRadius.circular(10)),
+                                    child: Text('${item['weight']}g', style: TextStyle(color: primaryRed, fontSize: 10, fontWeight: FontWeight.bold)),
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ),
-                        // Text Portion
                         Padding(
                           padding: const EdgeInsets.all(8.0),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                item['name'],
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              Text(item['name'] ?? '', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
                               const SizedBox(height: 2),
-                              Text(
-                                'Ends: ${item['expires_at']}',
-                                style: TextStyle(fontSize: 10, color: textMuted),
-                              ),
+                              Text('Ends: ${item['expires_at']}', style: TextStyle(fontSize: 10, color: textMuted)),
                             ],
                           ),
                         ),

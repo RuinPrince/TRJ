@@ -24,4 +24,25 @@ class DashboardService {
       return null;
     }
   }
+
+  // --- NEW: Fetch Live Inventory Images ---
+  Future<List<Map<String, dynamic>>> getLiveNewArrivals() async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/get_new_arrivals.php'),
+        headers: {"Accept": "application/json"},
+      );
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded['status'] == 'success') {
+          return List<Map<String, dynamic>>.from(decoded['data'] ?? []);
+        }
+      }
+      return [];
+    } catch (e) {
+      print("Error fetching new arrivals: $e");
+      return [];
+    }
+  }
 }

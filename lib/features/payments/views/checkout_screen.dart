@@ -101,6 +101,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       // 2. Call your Hostinger create_order.php script
       final result = await _paymentService.createCashfreeOrder(
         customerId,
+        widget.customerSchemeId, // <-- FIXED: Passing the Scheme ID here!
         widget.amount,
         phone,
       );

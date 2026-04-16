@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 
 // --- Services ---
 import 'services/local_storage_service.dart';
 import 'services/push_notification_service.dart';
 
 // --- Splash Screen ---
-import 'features/splash/views/splash_screen.dart'; // Added the splash screen import
+import 'features/splash/views/splash_screen.dart';
 
 // --- Auth Screens ---
 import 'features/auth/views/login_screen.dart';
@@ -31,23 +29,15 @@ import 'features/payments/views/receipt_screen.dart';
 // --- Support & Settings Screens ---
 import 'features/support/views/support_screen.dart';
 
-// NOTE: If you used FlutterFire CLI, uncomment the line below:
-// import 'firebase_options.dart';
-
 void main() async {
   // 1. Ensure Flutter bindings are ready before async operations
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 2. Initialize Firebase
-  await Firebase.initializeApp(
-    // options: DefaultFirebaseOptions.currentPlatform, // Uncomment if using FlutterFire CLI
-  );
-
-  // 3. Initialize Custom Services
+  // 2. Initialize Custom Services
   await LocalStorageService().init();
-  await PushNotificationService().init();
+  //await PushNotificationService().init();
 
-  // 4. Run the App
+  // 3. Run the App
   runApp(const ThangaRojaApp());
 }
 
@@ -93,7 +83,6 @@ class ThangaRojaApp extends StatelessWidget {
         '/schemes': (context) => const SchemesListScreen(),
         '/payment-history': (context) => const PaymentsScreen(),
         '/support': (context) => const SupportScreen(),
-        
       },
 
       // --- Dynamic Routes (With Arguments) ---
@@ -101,8 +90,6 @@ class ThangaRojaApp extends StatelessWidget {
       onGenerateRoute: (settings) {
         switch (settings.name) {
           case '/scheme-details':
-            // Example of passing an ID, though our UI file currently doesn't require it
-            // final schemeId = settings.arguments as String;
             return MaterialPageRoute(
               builder: (context) => const SchemeDetailsScreen(),
             );
@@ -124,40 +111,8 @@ class ThangaRojaApp extends StatelessWidget {
             );
             
           default:
-            return null; // Let the default routing handle unknown routes (or show a 404 screen)
+            return null; // Let the default routing handle unknown routes
         }
-      },
-    );
-  }
-}
-
-/// A widget that listens to the Firebase Auth state and acts as a gatekeeper.
-class AuthGate extends StatelessWidget {
-  const AuthGate({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
-      builder: (context, snapshot) {
-        // Show a loading spinner while checking auth state
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(color: Color(0xFF881337)),
-            ),
-          );
-        }
-
-        // If the user is logged in, show the Dashboard
-        if (snapshot.hasData) {
-          // Note: In a production app with both Admins and Customers, you would 
-          // fetch the user's role from Firestore here to decide WHICH dashboard to show.
-          return const DashboardScreen(); 
-        }
-
-        // If the user is NOT logged in, show the Login Screen
-        return const LoginScreen();
       },
     );
   }

@@ -8,13 +8,15 @@ class PaymentService {
   // ==========================================
   // 1. CREATE CASHFREE ORDER (For Checkout Screen)
   // ==========================================
-  Future<Map<String, dynamic>> createCashfreeOrder(String customerId, double amount, String phone) async {
+  // FIXED: Added schemeId parameter
+  Future<Map<String, dynamic>> createCashfreeOrder(String customerId, String schemeId, double amount, String phone) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/create_order.php'),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "customer_id": customerId,
+          "scheme_id": schemeId, // <-- NOW SENDING TO PHP
           "amount": amount,
           "customer_phone": phone,
         }),

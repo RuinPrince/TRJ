@@ -1,7 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../services/scheme_service.dart'; 
-import '../../../services/api_config.dart';
-import '../../../services/auth_service.dart'; // Needed for logout
+import '../../../services/local_storage_service.dart'; // THE FIX: Use local storage directly
+import '../../../services/auth_service.dart';
 
 class SchemesListScreen extends StatefulWidget {
   const SchemesListScreen({super.key});
@@ -29,10 +30,20 @@ class _SchemesListScreenState extends State<SchemesListScreen> {
     _loadSchemesData();
   }
 
+  // ==========================================
+  // THE FIX: Fetch real-time ID from Local Storage
+  // ==========================================
   Future<void> _loadSchemesData() async {
     setState(() => _isLoading = true);
     
-    final String? loggedInUserId = ApiConfig.currentUserId; 
+    // Safely get the absolute current user from device memory
+    final String? userJson = await LocalStorageService().getUserData();
+    String? loggedInUserId;
+    
+    if (userJson != null) {
+      final user = jsonDecode(userJson);
+      loggedInUserId = user['id'].toString();
+    }
 
     final results = await Future.wait([
       _schemeService.getAvailableSchemes(),
@@ -142,10 +153,20 @@ class _SchemesListScreenState extends State<SchemesListScreen> {
                       child: ElevatedButton(
                         onPressed: isSubmitting ? null : () async {
                           setModalState(() => isSubmitting = true);
+                          
+                          // THE FIX: Get exact ID at the moment of enrollment
+                          final String? userJson = await LocalStorageService().getUserData();
+                          String currentUserId = '0';
+                          if (userJson != null) {
+                             final user = jsonDecode(userJson);
+                             currentUserId = user['id'].toString();
+                          }
+
                           final response = await _schemeService.enrollInScheme(
-                            customerId: ApiConfig.currentUserId ?? '0',
+                            customerId: currentUserId,
                             schemeId: scheme['id'].toString(),
                           );
+
                           if (mounted) {
                             Navigator.pop(context); 
                             if (response['success'] == true) {
@@ -208,25 +229,22 @@ class _SchemesListScreenState extends State<SchemesListScreen> {
           ? Center(child: CircularProgressIndicator(color: primaryRed))
           : TabBarView(children: [_buildAvailableSchemesTab(), _buildMySchemesTab()]),
           
-        // --- ADDED FOOTER NAVIGATION ---
         bottomNavigationBar: Container(
           decoration: BoxDecoration(
             boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))],
           ),
           child: BottomNavigationBar(
-            currentIndex: 1, // THE FIX: Hardcoded to Schemes!
+            currentIndex: 1,
             onTap: (index) {
-              if (index == 1) return; // Already on Schemes
+              if (index == 1) return;
               if (index == 4) {
                 _handleLogout();
                 return;
               }
-              // If they click home, safely clear the stack back to dashboard!
               if (index == 0) {
                 Navigator.popUntil(context, ModalRoute.withName('/dashboard'));
                 return;
               }
-              // For others, replace the current screen
               String route = index == 2 ? '/payment-history' : '/profile';
               Navigator.pushReplacementNamed(context, route);
             },

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../../services/local_storage_service.dart';
@@ -6,16 +7,23 @@ class AuthService {
   // Pointing to your specific live domain
   final String baseUrl = 'https://trj.dreamyoursinfotech.com/api/auth';
 
+  // THE FIX: Fake Chrome Browser Headers to bypass Hostinger Firewall
+  final Map<String, String> _headers = {
+    "Content-Type": "application/json",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "application/json",
+  };
+
   Future<Map<String, dynamic>> login(String username, String password) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/login.php'),
-        headers: {"Content-Type": "application/json"},
+        headers: _headers, // Applying security bypass
         body: jsonEncode({
           "username": username,
           "password": password,
         }),
-      );
+      ).timeout(const Duration(seconds: 10)); // 10-second hard stop
 
       final data = jsonDecode(response.body);
 
@@ -23,8 +31,10 @@ class AuthService {
         await LocalStorageService().saveUserData(jsonEncode(data['user']));
         return {"success": true, "user": data['user']};
       } else {
-        return {"success": false, "message": data['message']};
+        return {"success": false, "message": data['message'] ?? "Invalid credentials"};
       }
+    } on TimeoutException {
+      return {"success": false, "message": "Connection timed out. Server blocked the request."};
     } catch (e) {
       return {"success": false, "message": "Network error occurred."};
     }
@@ -36,15 +46,15 @@ class AuthService {
     required String email,
     required String phone,
     required String password,
-    required String address, // NEW Mandatory Field
-    required String city,    // NEW Mandatory Field
-    required String pincode, // NEW Mandatory Field
-    String? pan,             // Still Optional
+    required String address,
+    required String city,   
+    required String pincode,
+    String? pan,            
   }) async {
     try {
       final response = await http.post(
         Uri.parse('$baseUrl/register.php'),
-        headers: {"Content-Type": "application/json"},
+        headers: _headers, // Applying security bypass
         body: jsonEncode({
           "full_name": fullName,
           "username": username,
@@ -56,7 +66,7 @@ class AuthService {
           "pincode": pincode,
           "pan_number": pan ?? "",
         }),
-      );
+      ).timeout(const Duration(seconds: 10)); // 10-second hard stop
 
       final data = jsonDecode(response.body);
 
@@ -65,6 +75,8 @@ class AuthService {
       } else {
         return {"success": false, "message": data['message'] ?? "Registration failed"};
       }
+    } on TimeoutException {
+      return {"success": false, "message": "Connection timed out. Server blocked the request."};
     } catch (e) {
       return {"success": false, "message": "Network error occurred. Please try again."};
     }

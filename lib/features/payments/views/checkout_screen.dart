@@ -28,29 +28,28 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   bool _isProcessing = false;
 
-  // ==========================================
-  // MAGIC LINK: AUTO-LOGIN & REDIRECT
-  // ==========================================
   Future<void> _launchWebPayment() async {
     setState(() => _isProcessing = true);
 
     try {
-      // 1. Get the currently logged-in user's ID
       final String? userJson = await LocalStorageService().getUserData();
       if (userJson == null) throw Exception("Not logged in");
       final user = jsonDecode(userJson);
       final String userId = user['id'].toString();
 
-      // 2. Request a secure Magic Link from your exact server domain
+      // THE FIX: Sending User ID, Scheme ID, and Amount to the generator!
       final response = await http.post(
         Uri.parse('https://trj.dreamyoursinfotech.com/api/customer/get_payment_link.php'),
-        body: {'user_id': userId},
+        body: {
+          'user_id': userId,
+          'customer_scheme_id': widget.customerSchemeId,
+          'amount': widget.amount.toString()
+        },
       );
 
       final data = jsonDecode(response.body);
       
       if (data['status'] == 'success') {
-        // 3. Launch the Magic Link in the browser!
         final url = Uri.parse(data['url']);
         await launchUrl(url, mode: LaunchMode.externalApplication);
         
@@ -59,16 +58,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           Navigator.pop(context, true); 
         }
       } else {
-         throw Exception("Failed to generate secure link");
+         throw Exception(data['message'] ?? "Failed to generate secure link");
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isProcessing = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Error connecting to payment server. Please try again."),
-            backgroundColor: Colors.redAccent,
-          ),
+          SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')), 
+            backgroundColor: Colors.redAccent
+          )
         );
       }
     }
@@ -99,9 +98,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: Colors.grey.shade200),
-                      boxShadow: [
-                        BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4)),
-                      ],
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
                     ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -111,7 +108,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         const Text("Payment Redirect", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 8),
                         Text(
-                          "For your security, you will be redirected to our official website. You will be automatically logged in to complete this payment.",
+                          "You will be securely redirected to the Cashfree gateway to complete your installment.",
                           textAlign: TextAlign.center,
                           style: TextStyle(color: textMuted, height: 1.5),
                         ),
@@ -141,7 +138,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 icon: _isProcessing ? const SizedBox.shrink() : const Icon(Icons.open_in_browser, color: Colors.white),
                 label: _isProcessing
                     ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text("PROCEED TO WEB PAYMENT", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.0)),
+                    : const Text("PROCEED TO SECURE PAYMENT", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 1.0)),
               ),
             ),
           )

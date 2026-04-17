@@ -37,14 +37,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       setState(() => _isLoading = true);
       
       try {
-        // Change this URL to match where you put the PHP file on Hostinger
         final url = Uri.parse('https://trj.dreamyoursinfotech.com/api/customer/forgot_password_api.php');
         
         final response = await http.post(
           url,
-          headers: {'Content-Type': 'application/json'},
+          headers: {
+            'Content-Type': 'application/json',
+            // THE FIX: Fake Chrome Browser Header
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          },
           body: jsonEncode({'email': _emailController.text.trim()}),
-        );
+        ).timeout(const Duration(seconds: 10)); // 10-second hard stop
 
         if (response.statusCode == 200) {
           final result = jsonDecode(response.body);
@@ -68,8 +71,13 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       } catch (e) {
         if (mounted) {
           setState(() => _isLoading = false);
+          
+          // Show the exact error so we know if it timed out or hit a 404
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Network error. Please check your connection.'), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text(e.toString().replaceAll("Exception: ", "")), 
+              backgroundColor: Colors.red
+            ),
           );
         }
       }

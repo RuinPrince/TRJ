@@ -1,6 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../../services/support_service.dart';
-import '../../../services/api_config.dart';
+import '../../../services/local_storage_service.dart'; // THE FIX: Replaced ApiConfig with LocalStorage
 
 class SupportScreen extends StatefulWidget {
   const SupportScreen({super.key});
@@ -27,22 +28,27 @@ class _SupportScreenState extends State<SupportScreen> {
     _loadTickets();
   }
 
+  // ==========================================
+  // THE FIX: Fetch real-time ID from Local Storage
+  // ==========================================
   Future<void> _loadTickets() async {
     setState(() {
       _isLoading = true;
     });
 
-    final String? userId = ApiConfig.currentUserId;
-    if (userId == null) {
-      setState(() => _isLoading = false);
+    final String? userJson = await LocalStorageService().getUserData();
+    if (userJson == null) {
+      if (mounted) setState(() => _isLoading = false);
       return;
     }
+    
+    final user = jsonDecode(userJson);
+    final String userId = user['id'].toString();
 
     final allTickets = await _supportService.getTickets(userId);
 
     if (mounted) {
       setState(() {
-        // THE FIX: Convert to lowercase to make the filter case-insensitive!
         _activeTickets = allTickets.where((t) {
           final status = (t['status'] ?? '').toString().toLowerCase();
           return status != 'resolved' && status != 'closed';
@@ -226,8 +232,16 @@ class _SupportScreenState extends State<SupportScreen> {
                                         isSubmitting = true;
                                       });
                                       
+                                      // THE FIX: Fetch exact ID for submission
+                                      final String? userJson = await LocalStorageService().getUserData();
+                                      String currentUserId = '0';
+                                      if (userJson != null) {
+                                         final user = jsonDecode(userJson);
+                                         currentUserId = user['id'].toString();
+                                      }
+                                      
                                       final response = await _supportService.createTicket({
-                                        'customer_id': ApiConfig.currentUserId ?? '0',
+                                        'customer_id': currentUserId,
                                         'subject': subjectController.text,
                                         'category': selectedCategory,
                                         'priority': selectedPriority,
@@ -378,12 +392,11 @@ class _SupportScreenState extends State<SupportScreen> {
       itemBuilder: (context, index) {
         final ticket = tickets[index];
         
-        // THE FIX: Case-insensitive status checking for UI styling
         final statusStr = (ticket['status'] ?? '').toString().toLowerCase();
         final bool isOpen = statusStr == 'open';
         final bool isResolved = statusStr == 'resolved' || statusStr == 'closed';
 
-        Color statusColor = Colors.orange; // In Progress default
+        Color statusColor = Colors.orange; 
         if (isOpen) statusColor = Colors.blue;
         if (isResolved) statusColor = Colors.green;
 
@@ -420,7 +433,6 @@ class _SupportScreenState extends State<SupportScreen> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          // Shows exactly what the DB sends (e.g. "resolved") but colored correctly
                           ticket['status'] ?? 'Unknown',
                           style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
                         ),
